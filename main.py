@@ -5,6 +5,7 @@ import console
 import math
 import json
 import pathlib
+import time
 from objc_util import ObjCInstance
 
 class Ease():
@@ -79,11 +80,17 @@ def onSliderZoom(_):
     global centerPos
     global ancorHitboxSize
     scale = Ease.inQuad(1, 10, v['slider_zoom'].value)
-    ancorHitboxSize = min(scale ** 10 * 5, 70)
+    ancorHitboxSize = min(Ease.inSine(10,200,v['slider_zoom'].value), 70)
     v['Image'].height, v['Image'].width = initialImageScale[0] * scale, initialImageScale[1] * scale
     v['Image'].x -= (scale / lastScale - 1) * (centerPos[0] - v['Image'].x)
     v['Image'].y -= (scale / lastScale - 1) * (centerPos[1] - v['Image'].y)
     lastScale = scale
+    
+    global boxCount
+    if not boxCount == 0:
+        global selectedBox
+        setAncorValue(selectedBox)
+    
     
 lastSliderValue = 0
 
@@ -105,26 +112,40 @@ def createAncorGuide():
     global ancorGuideNames
     global v
     for agn in ancorGuideNames:
-        view = ui.View(frame=(0,0,10,10), background_color=(1.0, 1.0, 1.0, 0.1), name=agn)
-        view.corner_radius = 5
-        v['touch_panel'].add_subview(view)
-
-def updateAncorGuidPos():
-    ancorsPos = getAncorsPos()
-    global ancorGuideNames
-    for i,agn in enumerate(ancorGuideNames):
-        v['touch_panel'][agn].center = ancorsPos[i]
+        view = ui.View(frame=(0,0,100,100), background_color=(0.5, 0.5, 0.5, 0.3), name=agn)
+        view.corner_radius = 50
+        view.alpha = 0.0
+        v['ancor_guide_layer'].add_subview(view)
 
 def showAncorGuid():
+    global v
+    if not v['show_ancor_guid_switch'].value:
+        return
     global ancorGuideNames
+    global boxCount
+    if boxCount == 0:
+        return
     for agn in ancorGuideNames:
-        v['touch_panel'][agn].alpha = 0.0
+        v['ancor_guide_layer'][agn].alpha = 1.0
 
 def hideAncorGuid():
     global ancorGuideNames
     for agn in ancorGuideNames:
-        v['touch_panel'][agn].alpha = 1.0
+        v['ancor_guide_layer'][agn].alpha = 0.0
 
+def updateAncorGuid():
+    global boxCount
+    if boxCount == 0:
+        return
+    ancorsPos = getAncorsPos()
+    global ancorGuideNames
+    global ancorHitboxSize
+    for i,agn in enumerate(ancorGuideNames):
+        v['ancor_guide_layer'][agn].center = ancorsPos[i]
+        v['ancor_guide_layer'][agn].width = ancorHitboxSize * 2
+        v['ancor_guide_layer'][agn].height = ancorHitboxSize * 2
+        v['ancor_guide_layer'][agn].corner_radius =  ancorHitboxSize
+    
 boxCount = 0
 
 boxData = {}
@@ -142,7 +163,7 @@ def setAncorValue(box):
         'w': box.width,
         'h': box.height
     }
-    updateAncorGuidPos()
+    updateAncorGuid()
     # print(boxData)
 
 selectedBox = ui.View
@@ -265,6 +286,22 @@ def clearAllBox():
         v['Image'].remove_subview(v['Image']['rangeBox' + str(i)])
     boxCount = 0
 
+def initProgressLabel():
+    global v
+    v['progress_label'].background_color = (1.0, 1.0, 1.0, 0.5)
+    v['progress_label'].alpha = 1.0
+
+def showProgressLabel():
+    global v
+    global photoNum
+    global assets
+    v['progress_label'].text = f'{photoNum+1}/{len(assets)}'
+    v['progress_label'].alpha = 1.0
+    def fadeout():
+        v['progress_label'].alpha = 0.0
+    ui.animate(fadeout, duration=5.0, delay=2.0)
+    
+
 photoNum = 0
 
 def openImage():
@@ -277,6 +314,7 @@ def openImage():
         lastedited['assetid'] = assets[photoNum].local_id
     with open('lastedited.json', 'w') as f:
         json.dump(lastedited, f)
+    showProgressLabel()
     
 def openNextImage():
     global photoNum
@@ -385,7 +423,7 @@ class touchView(ui.View):
         isAncorEditing = False
         doubleTouchFlag = False
         selectedAncor = None
-        updateAncorGuidPos()
+        updateAncorGuid()
         showAncorGuid()
 
 
@@ -402,6 +440,7 @@ def start():
     centerPos = v['Image'].center
     v['slider_zoom'].continuous = True
     createAncorGuide()
+    initProgressLabel()
 
 def openLastEdetedFile():
     global assets
@@ -449,7 +488,15 @@ def onButtonDelete(_):
     if boxCount == 0:
         return
     selectBox()
-    
+
+def onSwitchShowAncorGuid(sender):
+    global boxCount
+    if sender.value:
+        if not boxCount == 0:
+            setAncorValue(selectedBox)
+            showAncorGuid()
+    else:
+        hideAncorGuid()
 
 if __name__ == '__main__':
     global v

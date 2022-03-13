@@ -8,11 +8,11 @@
         "frame" : "{{0, 0}, {512, 512}}",
         "class" : "ImageView",
         "attributes" : {
-          "class" : "ImageView",
+          "custom_attributes" : "",
           "frame" : "{{206, 206}, {100, 100}}",
           "flex" : "WH",
+          "class" : "ImageView",
           "name" : "Image",
-          "custom_attributes" : "",
           "uuid" : "48A42CB2-D4EA-4628-88CB-A7179AB6BBBB"
         },
         "selected" : false
@@ -25,13 +25,28 @@
         "class" : "View",
         "attributes" : {
           "flex" : "LRTB",
-          "border_width" : 1,
+          "border_width" : 0.5,
           "frame" : "{{206, 206}, {100, 100}}",
           "class" : "View",
           "uuid" : "4487682B-450A-49C4-BDEC-A15C1D2CC51F",
           "corner_radius" : 0,
           "border_color" : "RGBA(0.000000,1.000000,0.000000,1.000000)",
           "name" : "guidBox"
+        },
+        "selected" : false
+      },
+      {
+        "nodes" : [
+
+        ],
+        "frame" : "{{0, 0}, {512, 512}}",
+        "class" : "View",
+        "attributes" : {
+          "flex" : "WH",
+          "frame" : "{{206, 206}, {100, 100}}",
+          "class" : "View",
+          "name" : "ancor_guide_layer",
+          "uuid" : "23EB8EAB-5EBA-4F5A-BFD1-4BF3FDB28EAC"
         },
         "selected" : false
       },
@@ -153,16 +168,55 @@
           "font_size" : 15
         },
         "selected" : false
+      },
+      {
+        "nodes" : [
+
+        ],
+        "frame" : "{{455, 475}, {51, 31}}",
+        "class" : "Switch",
+        "attributes" : {
+          "action" : "onSwitchShowAncorGuid",
+          "flex" : "LT",
+          "frame" : "{{231, 241}, {51, 31}}",
+          "class" : "Switch",
+          "uuid" : "6207148C-82D0-46D3-B9EC-40816846680E",
+          "value" : false,
+          "name" : "show_ancor_guid_switch"
+        },
+        "selected" : false
+      },
+      {
+        "nodes" : [
+
+        ],
+        "frame" : "{{426, 46}, {80, 32}}",
+        "class" : "Label",
+        "attributes" : {
+          "flex" : "LB",
+          "uuid" : "634A31D7-2E8E-4A10-A410-5B529D0C7498",
+          "corner_radius" : 16,
+          "background_color" : "RGBA(1.000000,0.538462,0.538462,1.000000)",
+          "frame" : "{{181, 240}, {150, 32}}",
+          "border_width" : 0,
+          "alignment" : "center",
+          "text" : "Label",
+          "font_name" : "<System>",
+          "class" : "Label",
+          "name" : "progress_label",
+          "font_size" : 18
+        },
+        "selected" : false
       }
     ],
     "frame" : "{{0, 0}, {512, 512}}",
     "class" : "View",
     "attributes" : {
-      "name" : "",
-      "enabled" : true,
       "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
+      "enabled" : true,
       "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
       "tint_color" : "RGBA(0.000000,0.478000,1.000000,1.000000)",
+      "name" : "",
       "flex" : ""
     },
     "selected" : false
