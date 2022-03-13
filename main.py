@@ -107,7 +107,7 @@ def createAncorGuide():
     for agn in ancorGuideNames:
         view = ui.View(frame=(0,0,10,10), background_color=(1.0, 1.0, 1.0, 0.1), name=agn)
         view.corner_radius = 5
-        v['touch_panel'].add_sub_view(view)
+        v['touch_panel'].add_subview(view)
 
 def updateAncorGuidPos():
     ancorsPos = getAncorsPos()
