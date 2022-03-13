@@ -6,7 +6,7 @@ import math
 import json
 import pathlib
 import time
-from objc_util import ObjCInstance
+from objc_util import ObjCInstance, on_main_thread
 
 class Ease():
     def liner(start, end, progress):
@@ -285,21 +285,18 @@ def clearAllBox():
     for i in range(boxCount):
         v['Image'].remove_subview(v['Image']['rangeBox' + str(i)])
     boxCount = 0
-
+    
+@on_main_thread
 def initProgressLabel():
-    global v
-    v['progress_label'].background_color = (1.0, 1.0, 1.0, 0.5)
-    v['progress_label'].alpha = 1.0
+    v['progress_label'].background_color = (1.0, 1.0, 1.0, 0.7)
+    v['progress_label'].corner_radius = 16
+    ObjCInstance(v['progress_label']).clipsToBounds = True
 
-def showProgressLabel():
+def updateProgressLabel():
     global v
     global photoNum
     global assets
     v['progress_label'].text = f'{photoNum+1}/{len(assets)}'
-    v['progress_label'].alpha = 1.0
-    def fadeout():
-        v['progress_label'].alpha = 0.0
-    ui.animate(fadeout, duration=5.0, delay=2.0)
     
 
 photoNum = 0
@@ -314,7 +311,7 @@ def openImage():
         lastedited['assetid'] = assets[photoNum].local_id
     with open('lastedited.json', 'w') as f:
         json.dump(lastedited, f)
-    showProgressLabel()
+    updateProgressLabel()
     
 def openNextImage():
     global photoNum
@@ -432,6 +429,9 @@ def setPhotoNumByPickAssets(assets):
     selectedAsset = photos.pick_asset(assets)
     photoNum = assets.index(selectedAsset)
 
+def awake():
+    initProgressLabel()
+
 def start():
     global v
     global initialImageScale
@@ -440,7 +440,6 @@ def start():
     centerPos = v['Image'].center
     v['slider_zoom'].continuous = True
     createAncorGuide()
-    initProgressLabel()
 
 def openLastEdetedFile():
     global assets
@@ -508,6 +507,6 @@ if __name__ == '__main__':
             
     if not openLastEdetedFile():
         onButtonSelect('_')
-    
+    awake()
     v.present('fullscreen')
     start()

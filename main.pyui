@@ -8,11 +8,11 @@
         "frame" : "{{0, 0}, {512, 512}}",
         "class" : "ImageView",
         "attributes" : {
-          "custom_attributes" : "",
+          "name" : "Image",
           "frame" : "{{206, 206}, {100, 100}}",
           "flex" : "WH",
+          "custom_attributes" : "",
           "class" : "ImageView",
-          "name" : "Image",
           "uuid" : "48A42CB2-D4EA-4628-88CB-A7179AB6BBBB"
         },
         "selected" : false
@@ -193,30 +193,30 @@
         "frame" : "{{426, 46}, {80, 32}}",
         "class" : "Label",
         "attributes" : {
-          "flex" : "LB",
-          "uuid" : "634A31D7-2E8E-4A10-A410-5B529D0C7498",
+          "uuid" : "3F6841FF-3847-455F-BBE1-8A63673D664A",
+          "font_size" : 18,
           "corner_radius" : 16,
-          "background_color" : "RGBA(1.000000,0.538462,0.538462,1.000000)",
+          "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
           "frame" : "{{181, 240}, {150, 32}}",
           "border_width" : 0,
           "alignment" : "center",
-          "text" : "Label",
+          "text" : "\/",
           "font_name" : "<System>",
           "class" : "Label",
           "name" : "progress_label",
-          "font_size" : 18
+          "flex" : "LB"
         },
-        "selected" : false
+        "selected" : true
       }
     ],
     "frame" : "{{0, 0}, {512, 512}}",
     "class" : "View",
     "attributes" : {
-      "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
-      "enabled" : true,
-      "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
       "tint_color" : "RGBA(0.000000,0.478000,1.000000,1.000000)",
+      "enabled" : true,
+      "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
       "name" : "",
+      "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
       "flex" : ""
     },
     "selected" : false
