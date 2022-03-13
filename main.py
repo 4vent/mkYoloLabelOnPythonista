@@ -408,6 +408,8 @@ def openLastEdetedFile():
     global photoNum
     with open('lastedited.json', 'r') as f:
         lastEditing = json.loads(f.read())
+        if not 'albumid' in lastEditing:
+            return False
         LEAlbumID = lastEditing['albumid']
         albums = photos.get_albums()
         if not LEAlbumID in [a.local_id for a in albums]:
@@ -415,6 +417,8 @@ def openLastEdetedFile():
         albumIndex = [a.local_id for a in albums].index(LEAlbumID)
         assets = albums[albumIndex].assets
         assets.reverse()
+        if not 'assetid' in lastEditing:
+            return False
         LEAssetID = lastEditing['assetid']
         if not LEAssetID in [a.local_id for a in assets]:
             return False
