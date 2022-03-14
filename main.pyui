@@ -8,12 +8,13 @@
         "frame" : "{{0, 0}, {512, 512}}",
         "class" : "ImageView",
         "attributes" : {
-          "name" : "Image",
-          "frame" : "{{206, 206}, {100, 100}}",
           "flex" : "WH",
+          "frame" : "{{206, 206}, {100, 100}}",
           "custom_attributes" : "",
           "class" : "ImageView",
-          "uuid" : "48A42CB2-D4EA-4628-88CB-A7179AB6BBBB"
+          "uuid" : "48A42CB2-D4EA-4628-88CB-A7179AB6BBBB",
+          "name" : "Image",
+          "image_name" : "iob:alert_circled_256"
         },
         "selected" : false
       },
@@ -48,7 +49,7 @@
           "name" : "ancor_guide_layer",
           "uuid" : "23EB8EAB-5EBA-4F5A-BFD1-4BF3FDB28EAC"
         },
-        "selected" : false
+        "selected" : true
       },
       {
         "nodes" : [
@@ -206,17 +207,56 @@
           "name" : "progress_label",
           "flex" : "LB"
         },
-        "selected" : true
+        "selected" : false
+      },
+      {
+        "nodes" : [
+
+        ],
+        "frame" : "{{396, 475}, {51, 31}}",
+        "class" : "Switch",
+        "attributes" : {
+          "flex" : "LT",
+          "action" : "onSwitch2PColor",
+          "frame" : "{{231, 241}, {51, 31}}",
+          "class" : "Switch",
+          "uuid" : "3E4D3646-5DE3-414B-924F-B7FAAD82BB5D",
+          "value" : false,
+          "name" : "theme_switch"
+        },
+        "selected" : false
+      },
+      {
+        "nodes" : [
+
+        ],
+        "frame" : "{{94, 475}, {54, 32}}",
+        "class" : "Button",
+        "attributes" : {
+          "uuid" : "0C1E11F6-A8CD-4770-86F1-AAFA7CA13817",
+          "flex" : "RT",
+          "corner_radius" : 16,
+          "background_color" : "RGBA(0.933962,0.933962,0.933962,1.000000)",
+          "frame" : "{{216, 240}, {80, 32}}",
+          "border_width" : 0,
+          "custom_attributes" : "",
+          "title" : "Back",
+          "action" : "onButtonBack",
+          "class" : "Button",
+          "name" : "button_back",
+          "font_size" : 15
+        },
+        "selected" : false
       }
     ],
     "frame" : "{{0, 0}, {512, 512}}",
     "class" : "View",
     "attributes" : {
-      "tint_color" : "RGBA(0.000000,0.478000,1.000000,1.000000)",
+      "name" : "",
       "enabled" : true,
       "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
-      "name" : "",
       "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
+      "tint_color" : "RGBA(0.000000,0.478000,1.000000,1.000000)",
       "flex" : ""
     },
     "selected" : false

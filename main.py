@@ -1,19 +1,26 @@
+# -*- coding: utf-8 -*-
+
 import ui
 import photos
 import dialogs
 import console
 import math
 import json
-import pathlib
+# import pathlib
+import os
 import time
+import sys
 from objc_util import ObjCInstance, on_main_thread
 
 class Ease():
-    def liner(start, end, progress):
+    @classmethod
+    def liner(self, start, end, progress):
         return (end - start) * progress + start
-    def inSine(start, end, progress):
+    @classmethod
+    def inSine(self, start, end, progress):
         return (end - start) * (1 - math.cos(progress * math.pi / 2)) + start
-    def inQuad(start, end, progress):
+    @classmethod
+    def inQuad(self, start, end, progress):
         return (end - start) * (progress ** 2) + start
 
 def compairString(large, small):
@@ -72,6 +79,7 @@ def moveImage(touch):
     v['Image'].center = [a+da for (a, da) in zip(imageLastPos, dpos)]
 
 lastScale = 1.0
+initialImageScale = (0, 0)
 
 def onSliderZoom(_):
     global v
@@ -234,26 +242,29 @@ def createNewBox():
     global boxCount
     global v
     global centerPos
+    global themeColors
     
     box = ui.View()
     box.border_width = 2
-    box.border_color = (1.0, 0.0, 0.0, 1.0)
+    boxColor = themeColors[1 if v['theme_switch'].value else 0]['box']
+    boxBGColor = themeColors[1 if v['theme_switch'].value else 0]['boxbg']
+    box.border_color = boxColor
     ancorDotSize = 5
     ancorDots = [
-        ui.View(frame=(0,0,ancorDotSize,ancorDotSize), flex='RB'),
-        ui.View(frame=(50-ancorDotSize/2,0,ancorDotSize,ancorDotSize), flex='LRB'),
-        ui.View(frame=(100-ancorDotSize,0,ancorDotSize,ancorDotSize), flex='LB'),
-        ui.View(frame=(0,50-ancorDotSize/2,ancorDotSize,ancorDotSize), flex='RTB'),
-        ui.View(frame=(100-ancorDotSize,50-ancorDotSize/2,ancorDotSize,ancorDotSize), flex='LTB'),
-        ui.View(frame=(0,100-ancorDotSize,ancorDotSize,ancorDotSize), flex='RT'),
-        ui.View(frame=(50-ancorDotSize/2,100-ancorDotSize,ancorDotSize,ancorDotSize), flex='LRT'),
-        ui.View(frame=(100-ancorDotSize,100-ancorDotSize,ancorDotSize,ancorDotSize), flex='LT'),
-        ui.View(frame=(50-ancorDotSize/2,50-ancorDotSize/2,ancorDotSize,ancorDotSize), flex='LRTB'),
+        ui.View(frame=(0,0,ancorDotSize,ancorDotSize), flex='RB', name='ancorDot0'),
+        ui.View(frame=(50-ancorDotSize/2,0,ancorDotSize,ancorDotSize), flex='LRB', name='ancorDot1'),
+        ui.View(frame=(100-ancorDotSize,0,ancorDotSize,ancorDotSize), flex='LB', name='ancorDot2'),
+        ui.View(frame=(0,50-ancorDotSize/2,ancorDotSize,ancorDotSize), flex='RTB', name='ancorDot3'),
+        ui.View(frame=(100-ancorDotSize,50-ancorDotSize/2,ancorDotSize,ancorDotSize), flex='LTB', name='ancorDot4'),
+        ui.View(frame=(0,100-ancorDotSize,ancorDotSize,ancorDotSize), flex='RT', name='ancorDot5'),
+        ui.View(frame=(50-ancorDotSize/2,100-ancorDotSize,ancorDotSize,ancorDotSize), flex='LRT', name='ancorDot6'),
+        ui.View(frame=(100-ancorDotSize,100-ancorDotSize,ancorDotSize,ancorDotSize), flex='LT', name='ancorDot7'),
+        ui.View(frame=(50-ancorDotSize/2,50-ancorDotSize/2,ancorDotSize,ancorDotSize), flex='LRTB', name='ancorDot8'),
         ]
     for d in ancorDots:
-        d.background_color = (1.0, 0.0, 0.0, 1.0)
+        d.background_color = boxColor
         box.add_subview(d)
-    box.background_color = (1.0, 0.0, 0.0, 0.2)
+    box.background_color = boxBGColor
     box.flex = 'WHLRTB'
     box.name = 'rangeBox' + str(boxCount)
     box.bounds = (0,0,200,200)
@@ -277,7 +288,7 @@ def makeYoloAnotationLine(imageTopLeftPos, imageBottomRightPos, boxView):
         'w': boxView.width / width,
         'h': boxView.height / height
     }
-    return f'{yoloLine["label"]} {yoloLine["x"]:.6f} {yoloLine["y"]:.6f} {yoloLine["w"]:.6f} {yoloLine["h"]:.6f}'
+    return '{} {:.6f} {:.6f} {:.6f} {:.6f}'.format(yoloLine["label"], yoloLine["x"], yoloLine["y"], yoloLine["w"], yoloLine["h"])
 
 def clearAllBox():
     global v
@@ -296,7 +307,7 @@ def updateProgressLabel():
     global v
     global photoNum
     global assets
-    v['progress_label'].text = f'{photoNum+1}/{len(assets)}'
+    v['progress_label'].text = '{}/{}'.format(photoNum+1, len(assets))
     
 
 photoNum = 0
@@ -304,7 +315,11 @@ photoNum = 0
 def openImage():
     global photoNum
     global assets
+    global centerPos
     clearAllBox()
+    v['slider_zoom'].value = 0
+    onSliderZoom('_')
+    v['Image'].center = centerPos
     v['Image'].image = assets[photoNum].get_ui_image()
     with open('lastedited.json', 'r') as f:
         lastedited = json.load(f)
@@ -315,15 +330,20 @@ def openImage():
     
 def openNextImage():
     global photoNum
-    global centerPos
     global assets
     if photoNum == len(assets) - 1:
         dialogs.alert('最新の写真です。', button1='OK', hide_cancel_button=True)
     else:
         photoNum += 1
-    v['slider_zoom'].value = 0
-    onSliderZoom('_')
-    v['Image'].center = centerPos
+    openImage()
+
+def openPrevImagee():
+    global photoNum
+    global assets
+    if photoNum == 0:
+        dialogs.alert('最初の写真です',  button1='OK', hide_cancel_button=True)
+    else:
+        photoNum -= 1
     openImage()
 
 def getNowImage():
@@ -353,7 +373,9 @@ def onButtonDone(_):
         yoloAnotationText += line + '\n'
     
     photoFileName = str(ObjCInstance(photoAsset).filename())
-    annotationFileName = pathlib.PurePath(photoFileName).stem + '.txt'
+    # annotationFileName = pathlib.PurePath(photoFileName).stem + '.txt'
+    annotationFileName = os.path.split(photoFileName)[0] + '.txt'
+    console.hud_alert(annotationFileName)
     if not boxCount == 0:
         try:
             with open('result/' + annotationFileName, 'x') as f:
@@ -365,7 +387,10 @@ def onButtonDone(_):
                     f.write(yoloAnotationText)
             
     openNextImage()
-
+    
+def onButtonBack(_):
+    openPrevImagee()
+    
 ancorGuideNames = [
     'ancorGuideTL',
     'ancorGuideTM',
@@ -432,6 +457,8 @@ def setPhotoNumByPickAssets(assets):
 def awake():
     initProgressLabel()
 
+centerPos = (0,0)
+
 def start():
     global v
     global initialImageScale
@@ -496,6 +523,36 @@ def onSwitchShowAncorGuid(sender):
             showAncorGuid()
     else:
         hideAncorGuid()
+        
+is2PColor = False
+themeColors = (
+    {
+        'box': (1.0, 0.0, 0.0, 1.0),
+        'boxbg': (1.0, 0.0, 0.0, 0.2),
+        'guide': (0.0, 1.0, 0.0, 1.0)
+    },
+    {
+        'box': (0.0, 1.0, 1.0, 1.0),
+        'boxbg': (0.0, 1.0, 1.0, 0.2),
+        'guide': (1.0, 0.0, 1.0, 1.0)
+    }
+)
+
+def onSwitch2PColor(sender):
+    global v
+    global boxCount
+    global is2PColor
+    global themeColor
+    index = 0
+    if sender.value:
+        index = 1
+    v['guidBox'].border_color = themeColors[index]['guide']
+    for i in range(boxCount):
+        v['Image']['rangeBox' + str(i)].border_color = themeColors[index]['box']
+        v['Image']['rangeBox' + str(i)].background_color = themeColors[index]['boxbg']
+        for j in range(9):
+            v['Image']['rangeBox' + str(i)]['ancorDot' + str(j)].background_color = themeColors[index]['box']
+        
 
 if __name__ == '__main__':
     global v
