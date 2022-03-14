@@ -22,6 +22,13 @@ class Ease():
     @classmethod
     def inQuad(self, start, end, progress):
         return (end - start) * (progress ** 2) + start
+    @classmethod
+    def inQuad_inverse(self, start, end, value):
+        progress = math.sqrt(max((value - start) / (end - start), 0))
+        return progress
+    @classmethod
+    def InExpo(self, start, end, progress):
+        return  0 if x == 0 else pow(2, 10 * x - 10);
 
 def compairString(large, small):
     for l, s in zip(large, small):
@@ -60,44 +67,71 @@ def getAlbumWithDialog():
         return albumAssetCollections[selectedAlbumNum]
 
 imageLastPos = (0,0)
+trueImageLastPos = (0,0)
 
 def setImageLastPos():
     global v
     global imageLastPos
+    global trueImageLastPos
+    global trueLastScale
+    global lastScale
     imageLastPos = v['Image'].center
+    trueImageLastPos = v['Image'].center
+    trueLastScale = lastScale
     
 touchBeganPos = (0,0)
 
-def setTouchBeganPos(touch):
+def setTouchBeganPos(location):
     global touchBeganPos
-    touchBeganPos = touch.location
+    global lastTouchLocation
+    touchBeganPos = location
+    lastTouchLocation = location
 
-def moveImage(touch):
+lastTouchLocation = (0.0,0.0)
+
+def moveImage(location):
     global imageLastPos
     global touchBeganPos
-    dpos = [da-a for (a, da) in zip(touchBeganPos, touch.location)]
-    v['Image'].center = [a+da for (a, da) in zip(imageLastPos, dpos)]
+    global lastTouchLocation
+    dpos = [da-a for (a, da) in zip(lastTouchLocation, location)]
+    v['Image'].center += dpos # [a+da for (a, da) in zip(imageLastPos, dpos)]
+    lastTouchLocation = location
 
 lastScale = 1.0
+trueLastScale = 1.0
 initialImageScale = (0, 0)
 
-def onSliderZoom(_):
+def imageZoom(zoomCenter, scale, isUpdateSlider=False):
     global v
     global initialImageScale
     global lastScale
-    global centerPos
     global ancorHitboxSize
-    scale = Ease.inQuad(1, 10, v['slider_zoom'].value)
+    global imageLastPos
     ancorHitboxSize = min(Ease.inSine(10,200,v['slider_zoom'].value), 70)
     v['Image'].height, v['Image'].width = initialImageScale[0] * scale, initialImageScale[1] * scale
-    v['Image'].x -= (scale / lastScale - 1) * (centerPos[0] - v['Image'].x)
-    v['Image'].y -= (scale / lastScale - 1) * (centerPos[1] - v['Image'].y)
+    v['Image'].x -= (scale / lastScale - 1) * (zoomCenter[0] - v['Image'].x)
+    v['Image'].y -= (scale / lastScale - 1) * (zoomCenter[1] - v['Image'].y)
+    imageLastPos = (
+        (imageLastPos[0] - zoomCenter[0]) * (scale / lastScale) + zoomCenter[0],
+        (imageLastPos[1] - zoomCenter[1]) * (scale / lastScale) + zoomCenter[1]
+        )
     lastScale = scale
     
     global boxCount
     if not boxCount == 0:
         global selectedBox
         setAncorValue(selectedBox)
+        
+    if isUpdateSlider:
+        v['slider_zoom'].value = Ease.inQuad_inverse(1, 16, scale)
+
+def imageZoomBySliderValue(zoomCenter):
+    scale = Ease.inQuad(1, 16, v['slider_zoom'].value)
+    imageZoom(zoomCenter, scale)
+
+def onSliderZoom(_):
+    global centerPos
+    imageZoomBySliderValue(centerPos)
     
     
 lastSliderValue = 0
@@ -113,7 +147,7 @@ def zoomWithDoubletouch(touch):
     coef = 500
     dy = touch.location[1] - touchBeganPos[1]
     v['slider_zoom'].value = lastSliderValue + dy / coef
-    onSliderZoom('_')
+    imageZoomBySliderValue(touchBeganPos)
 
 
 def createAncorGuide():
@@ -316,10 +350,12 @@ def openImage():
     global photoNum
     global assets
     global centerPos
-    clearAllBox()
+    global v
+    
     v['slider_zoom'].value = 0
     onSliderZoom('_')
     v['Image'].center = centerPos
+    clearAllBox()
     v['Image'].image = assets[photoNum].get_ui_image()
     with open('lastedited.json', 'r') as f:
         lastedited = json.load(f)
@@ -372,25 +408,60 @@ def onButtonDone(_):
         line = makeYoloAnotationLine(tl, br, v['Image']['rangeBox' + str(i)])
         yoloAnotationText += line + '\n'
     
-    photoFileName = str(ObjCInstance(photoAsset).filename())
-    # annotationFileName = pathlib.PurePath(photoFileName).stem + '.txt'
-    annotationFileName = os.path.split(photoFileName)[0] + '.txt'
-    console.hud_alert(annotationFileName)
     if not boxCount == 0:
-        try:
-            with open('result/' + annotationFileName, 'x') as f:
-                f.write(yoloAnotationText)
-        except FileExistsError:
+        photoFileName = str(ObjCInstance(photoAsset).filename())
+        # annotationFileName = pathlib.PurePath(photoFileName).stem + '.txt'
+        annotationFileName = os.path.splitext(photoFileName)[0] + '.txt'
+        if os.path.exists('result/' + annotationFileName):
             yesOrNo = console.alert('ファイルが存在します。', '上書きしますか？', 'はい', 'いいえ', hide_cancel_button=True)
             if yesOrNo == 1:
                 with open('result/' + annotationFileName, 'w') as f:
                     f.write(yoloAnotationText)
+        else:
+            with open('result/' + annotationFileName, 'w') as f:
+                f.write(yoloAnotationText)
             
     openNextImage()
     
 def onButtonBack(_):
     openPrevImagee()
-    
+
+activeTouchIDs = {}
+
+def getPinchCenterPos():
+    global activeTouchIDs
+    center = (
+        (dict(activeTouchIDs).values()[0][0] + dict(activeTouchIDs).values()[1][0]) / 2,
+        (dict(activeTouchIDs).values()[0][1] + dict(activeTouchIDs).values()[1][1]) / 2
+    )
+    return center
+
+pinchBeganDistance = 0.0
+
+def getPinchDistance():
+    global activeTouchIDs
+    distance = math.sqrt(
+        (dict(activeTouchIDs).values()[0][0] - dict(activeTouchIDs).values()[1][0]) ** 2 +
+        (dict(activeTouchIDs).values()[0][1] - dict(activeTouchIDs).values()[1][1]) ** 2
+    )
+    return distance
+
+def pinch():
+    global v
+    global pinchBeganDistance
+    global lastSliderValue
+    global trueLastScale
+    center = getPinchCenterPos()
+    pinchDistance = getPinchDistance()
+    zoomRate = (pinchDistance / pinchBeganDistance)
+    imageZoom(center, trueLastScale * zoomRate, isUpdateSlider=True)
+    #if zoomRate < 1:
+    #    v['slider_zoom'].value = lastSliderValue - Ease.inQuad_inverse(1, 16, 1/zoomRate)
+    #else:
+    #    v['slider_zoom'].value = lastSliderValue + Ease.inQuad_inverse(1, 16, zoomRate)
+    moveImage(center)
+    imageZoomBySliderValue(center)
+
 ancorGuideNames = [
     'ancorGuideTL',
     'ancorGuideTM',
@@ -406,11 +477,16 @@ ancorGuideNames = [
 isAncorEditing = False
 lastTouchTimestamp = 0
 doubleTouchFlag = False
+multiTouchFlag = False
+
 class touchView(ui.View):
     def touch_began(self, touch):
         global isAncorEditing
         global lastTouchTimestamp
         global doubleTouchFlag
+        global activeTouchIDs
+        global multiTouchFlag
+        activeTouchIDs[touch.touch_id] = touch.location
         if lastTouchTimestamp + 0.2 > touch.timestamp:
             doubleTouchFlag = True
             setLastZoomScale()
@@ -419,29 +495,45 @@ class touchView(ui.View):
             isAncorEditing = True
         else:
             setImageLastPos()
-            
-        setTouchBeganPos(touch)
+        
+        if len(activeTouchIDs) == 2:
+            multiTouchFlag = True
+            setTouchBeganPos(getPinchCenterPos())
+            global pinchBeganDistance
+            pinchBeganDistance = getPinchDistance()
+            setLastZoomScale()
+        else:
+            setTouchBeganPos(touch.location)
         hideAncorGuid()
     
     def touch_moved(self, touch):
         global isAncorEditing
         global doubleTouchFlag
+        global activeTouchIDs
+        global multiTouchFlag
+        activeTouchIDs[touch.touch_id] = touch.location
         if lastTouchTimestamp + 0.08 < touch.timestamp:
-            if doubleTouchFlag:
+            if multiTouchFlag:
+                if len(activeTouchIDs) == 2:
+                    pinch()
+            elif doubleTouchFlag:
                 zoomWithDoubletouch(touch)
             elif isAncorEditing:
                 moveAncor(touch)
             else:
-                moveImage(touch)
+                moveImage(touch.location)
         
     def touch_ended(self, touch):
         global isAncorEditing
         global selectedBox
         global doubleTouchFlag
         global selectedAncor
+        global multiTouchFlag
         if boxCount > 0:
             selectBox()
-        
+        del activeTouchIDs[touch.touch_id]
+        if len(activeTouchIDs) == 0:
+            multiTouchFlag = False
         isAncorEditing = False
         doubleTouchFlag = False
         selectedAncor = None
@@ -453,20 +545,6 @@ def setPhotoNumByPickAssets(assets):
     global photoNum
     selectedAsset = photos.pick_asset(assets)
     photoNum = assets.index(selectedAsset)
-
-def awake():
-    initProgressLabel()
-
-centerPos = (0,0)
-
-def start():
-    global v
-    global initialImageScale
-    global centerPos
-    initialImageScale = [v['Image'].height, v['Image'].width]
-    centerPos = v['Image'].center
-    v['slider_zoom'].continuous = True
-    createAncorGuide()
 
 def openLastEdetedFile():
     global assets
@@ -553,17 +631,30 @@ def onSwitch2PColor(sender):
         for j in range(9):
             v['Image']['rangeBox' + str(i)]['ancorDot' + str(j)].background_color = themeColors[index]['box']
         
+centerPos = (0,0)
+
+def awake():
+    global v
+    initProgressLabel()
+    v['touch_panel'].multitouch_enabled = True
+    v['slider_zoom'].continuous = True
+    v['Image'].content_mode = ui.CONTENT_SCALE_ASPECT_FIT
+
+def start():
+    global v
+    global centerPos
+    global initialImageScale
+    centerPos = v['touch_panel'].center
+    initialImageScale = [v['touch_panel'].height, v['touch_panel'].width]
+    if not openLastEdetedFile():
+        onButtonSelect('_')
+    createAncorGuide()
 
 if __name__ == '__main__':
     global v
-    global assets
     
     v = ui.load_view()
-    
-    v['Image'].content_mode = ui.CONTENT_SCALE_ASPECT_FIT
-            
-    if not openLastEdetedFile():
-        onButtonSelect('_')
     awake()
+            
     v.present('fullscreen')
     start()

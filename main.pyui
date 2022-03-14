@@ -13,10 +13,9 @@
           "custom_attributes" : "",
           "class" : "ImageView",
           "uuid" : "48A42CB2-D4EA-4628-88CB-A7179AB6BBBB",
-          "name" : "Image",
-          "image_name" : "iob:alert_circled_256"
+          "name" : "Image"
         },
-        "selected" : false
+        "selected" : true
       },
       {
         "nodes" : [
@@ -49,7 +48,7 @@
           "name" : "ancor_guide_layer",
           "uuid" : "23EB8EAB-5EBA-4F5A-BFD1-4BF3FDB28EAC"
         },
-        "selected" : true
+        "selected" : false
       },
       {
         "nodes" : [
@@ -201,7 +200,7 @@
           "frame" : "{{181, 240}, {150, 32}}",
           "border_width" : 0,
           "alignment" : "center",
-          "text" : "\/",
+          "text" : "---\/---",
           "font_name" : "<System>",
           "class" : "Label",
           "name" : "progress_label",
@@ -252,11 +251,11 @@
     "frame" : "{{0, 0}, {512, 512}}",
     "class" : "View",
     "attributes" : {
-      "name" : "",
-      "enabled" : true,
-      "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
       "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
+      "enabled" : true,
       "tint_color" : "RGBA(0.000000,0.478000,1.000000,1.000000)",
+      "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
+      "name" : "",
       "flex" : ""
     },
     "selected" : false
