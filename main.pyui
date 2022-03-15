@@ -8,14 +8,14 @@
         "frame" : "{{0, 0}, {512, 512}}",
         "class" : "ImageView",
         "attributes" : {
-          "flex" : "WH",
-          "frame" : "{{206, 206}, {100, 100}}",
-          "custom_attributes" : "",
           "class" : "ImageView",
-          "uuid" : "48A42CB2-D4EA-4628-88CB-A7179AB6BBBB",
-          "name" : "Image"
+          "frame" : "{{206, 206}, {100, 100}}",
+          "flex" : "WH",
+          "name" : "Image",
+          "custom_attributes" : "",
+          "uuid" : "48A42CB2-D4EA-4628-88CB-A7179AB6BBBB"
         },
-        "selected" : true
+        "selected" : false
       },
       {
         "nodes" : [
@@ -173,7 +173,7 @@
         "nodes" : [
 
         ],
-        "frame" : "{{455, 475}, {51, 31}}",
+        "frame" : "{{520, 476}, {51, 31}}",
         "class" : "Switch",
         "attributes" : {
           "action" : "onSwitchShowAncorGuid",
@@ -212,7 +212,7 @@
         "nodes" : [
 
         ],
-        "frame" : "{{396, 475}, {51, 31}}",
+        "frame" : "{{455, 475}, {51, 31}}",
         "class" : "Switch",
         "attributes" : {
           "flex" : "LT",
@@ -223,7 +223,7 @@
           "value" : false,
           "name" : "theme_switch"
         },
-        "selected" : false
+        "selected" : true
       },
       {
         "nodes" : [
@@ -251,11 +251,11 @@
     "frame" : "{{0, 0}, {512, 512}}",
     "class" : "View",
     "attributes" : {
-      "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
+      "name" : "",
       "enabled" : true,
+      "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
       "tint_color" : "RGBA(0.000000,0.478000,1.000000,1.000000)",
       "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
-      "name" : "",
       "flex" : ""
     },
     "selected" : false

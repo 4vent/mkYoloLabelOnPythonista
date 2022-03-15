@@ -144,7 +144,7 @@ def zoomWithDoubletouch(touch):
     global touchBeganPos
     global lastSliderValue
     global v
-    coef = 500
+    coef = 800
     dy = touch.location[1] - touchBeganPos[1]
     v['slider_zoom'].value = lastSliderValue + dy / coef
     imageZoomBySliderValue(touchBeganPos)
@@ -445,7 +445,7 @@ def getPinchDistance():
         (dict(activeTouchIDs).values()[0][1] - dict(activeTouchIDs).values()[1][1]) ** 2
     )
     return distance
-
+(む)
 def pinch():
     global v
     global pinchBeganDistance
