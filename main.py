@@ -12,6 +12,23 @@ import time
 import sys
 from objc_util import ObjCInstance, on_main_thread
 
+themeColors = (
+    {
+        'box': (1.0, 0.0, 0.0, 0.0),
+        'boxbg': (1.0, 0.0, 0.0, 0.2),
+        'selectedbox': (1.0, 0.0, 0.0, 1.0),
+        'selectedboxbg': (1.0, 0.0, 0.0, 0.2),
+        'guide': (0.0, 1.0, 0.0, 1.0)
+    },
+    {
+        'box': (0.0, 1.0, 1.0, 0.0),
+        'boxbg': (0.0, 1.0, 1.0, 0.2),
+        'selectedbox': (0.0, 1.0, 1.0, 1.0),
+        'selectedboxbg': (0.0, 1.0, 1.0, 0.2),
+        'guide': (1.0, 0.0, 1.0, 1.0)
+    }
+)
+
 class Ease():
     @classmethod
     def liner(self, start, end, progress):
@@ -267,12 +284,28 @@ def setAncorValue(box):
     updateAncorGuid()
     # print(boxData)
 
-selectedBox = ui.View
+selectedBox = None
+selectedBoxIndex = 0
 
-def selectBox():
+def selectBox(index):
     global selectedBox
+    global selectedBoxIndex
     global v
-    selectedBox = v['Image']['rangeBox' + str(boxCount - 1)]
+    global themeColors
+    global selectedThemeIndex
+    
+    selectedBoxIndex = index
+    
+    if selectedBox:
+        selectedBox.background_color = themeColors[selectedThemeIndex]['boxbg']
+        selectedBox.border_color = themeColors[selectedThemeIndex]['box']
+        for view in selectedBox.subviews:
+            view.background_color = themeColors[selectedThemeIndex]['box']
+    selectedBox = v['Image']['rangeBox' + str(index)]
+    selectedBox.background_color = themeColors[selectedThemeIndex]['selectedboxbg']
+    selectedBox.border_color = themeColors[selectedThemeIndex]['selectedbox']
+    for viwe in selectedBox.subviews:
+        viwe.background_color = themeColors[selectedThemeIndex]['selectedbox']
     setAncorValue(selectedBox)
 
 selectedAncor = 'tl'
@@ -336,11 +369,12 @@ def createNewBox(center=None, width=None, height=None):
     global v
     global centerPos
     global themeColors
+    global selectedThemeIndex
     
     box = ui.View(flex = '')
     box.border_width = 2
-    boxColor = themeColors[1 if v['theme_switch'].value else 0]['box']
-    boxBGColor = themeColors[1 if v['theme_switch'].value else 0]['boxbg']
+    boxColor = themeColors[selectedThemeIndex]['selectedbox']
+    boxBGColor = themeColors[selectedThemeIndex]['selectedboxbg']
     box.border_color = boxColor
     ancorDotSize = 5
     ancorDots = [
@@ -364,16 +398,14 @@ def createNewBox(center=None, width=None, height=None):
         box.width = width
         box.height = height
         box.center = center
-        print('CREATE BOX', center)
     else:
         box.bounds = (0,0,200,200)
         imageViewCenterGap = [a-b for (a, b) in zip(v['Image'].center, centerPos)]
         centerPosInImageView = (v['Image'].width / 2, v['Image'].height / 2)
         box.center = [a-b for (a, b) in zip(centerPosInImageView, imageViewCenterGap)]
     v['Image'].add_subview(box)
-    print('実際のBOX', v['Image']['rangeBox' + str(boxCount)].center, center)
     boxCount += 1
-    selectBox()
+    selectBox(boxCount - 1)
 
 def onButtonCreate(_):
     createNewBox()
@@ -401,7 +433,6 @@ def loadAnnotationFile():
     global assets
     global photoNum
     
-    print('LOAD BOXES')
     
     photoAsset = assets[photoNum]
     
@@ -428,7 +459,6 @@ def loadAnnotationFile():
             float(args[3]),
             float(args[4])
             )
-        print('YOKO->BOX', box)
         createNewBox(
             center=(box['x'], box['y']),
             width=box['width'],
@@ -515,8 +545,6 @@ def onButtonDone(_):
     global boxCount
     global photoNum
     global assets
-    
-    print('WRITE BOXES')
     
     photoAsset = assets[photoNum]
     
@@ -677,7 +705,8 @@ class touchView(ui.View):
         global selectedAncor
         global multiTouchFlag
         if boxCount > 0:
-            selectBox()
+            pass
+            # selectBox()
         del activeTouchIDs[touch.touch_id]
         if len(activeTouchIDs) == 0:
             multiTouchFlag = False
@@ -754,39 +783,51 @@ def onSwitchShowAncorGuid(sender):
         hideAncorGuid()
         
 is2PColor = False
-themeColors = (
-    {
-        'box': (1.0, 0.0, 0.0, 1.0),
-        'boxbg': (1.0, 0.0, 0.0, 0.2),
-        'guide': (0.0, 1.0, 0.0, 1.0)
-    },
-    {
-        'box': (0.0, 1.0, 1.0, 1.0),
-        'boxbg': (0.0, 1.0, 1.0, 0.2),
-        'guide': (1.0, 0.0, 1.0, 1.0)
-    }
-)
 
-def onSwitch2PColor(sender):
-    global v
+selectedThemeIndex = 0
+
+def applyThemeColor(index):
+    global themeColors
     global boxCount
-    global is2PColor
-    global themeColor
-    index = 0
-    if sender.value:
-        index = 1
+    global selectedBox
+    global selectedThemeIndex
+    
+    selectedThemeIndex = index
+    
+    # guide
     v['guidBox'].border_color = themeColors[index]['guide']
+    
+    # box
     for i in range(boxCount):
         v['Image']['rangeBox' + str(i)].border_color = themeColors[index]['box']
         v['Image']['rangeBox' + str(i)].background_color = themeColors[index]['boxbg']
-        for j in range(9):
-            v['Image']['rangeBox' + str(i)]['ancorDot' + str(j)].background_color = themeColors[index]['box']
+        for view in v['Image']['rangeBox' + str(i)].subviews:
+            view.background_color = themeColors[index]['box']
+    
+    # selectedBox
+    selectedBox.border_color = themeColors[index]['selectedbox']
+    selectedBox.background_color = themeColors[index]['selectedboxbg']
+    for view in selectedBox.subviews:
+        view.background_color = themeColors[index]['selectedbox']
+
+def onSwitch2PColor(sender):
+    applyThemeColor(1 if sender.value else 0)
 
 def onSaturationSlider(sender):
     v['Image']['saturationScreen'].alpha = sender.value
 
 def onBrightnessSlider(sender):
     v['Image']['brightnessScreen'].alpha = sender.value
+
+def onButtonChangeSelect(_):
+    global selectedBoxIndex
+    global boxCount
+    
+    index = selectedBoxIndex + 1
+    if index == boxCount:
+        index = 0
+    
+    selectBox(index)
 
 vrt_hitbox = ui.Path
 hlz_hitbox = ui.Path
