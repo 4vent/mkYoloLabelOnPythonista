@@ -50,7 +50,6 @@ def yoloPos2BoxPos(
     yoloWidth,
     yoloHeight
     ):
-    console.hud_alert(str(float(yoloCenterX) * photoWidth + photoX))
     return {
         'x': float(yoloCenterX) * photoWidth + photoX,
         'y': float(yoloCenterY) * photoHeight + photoY,
@@ -68,7 +67,6 @@ def boxPos2YoloPos(
     boxWidth,
     boxHeight
     ):
-    console.hud_alert(str(boxCenterX))
     return {
         'x': (boxCenterX - photoX) / float(photoWidth),
         'y': (boxCenterY - photoY) / float(photoHeight),
@@ -87,7 +85,6 @@ def makeYoloAnotationLine(photo, boxView):
         boxView.width,
         boxView.height
         )
-    
     return '{} {:.6f} {:.6f} {:.6f} {:.6f}'.format(0, yoloLine["x"], yoloLine["y"], yoloLine["width"], yoloLine["height"])
 
 def sortedAlbums(albumAssetCollections):
@@ -340,7 +337,7 @@ def createNewBox(center=None, width=None, height=None):
     global centerPos
     global themeColors
     
-    box = ui.View()
+    box = ui.View(flex = '')
     box.border_width = 2
     boxColor = themeColors[1 if v['theme_switch'].value else 0]['box']
     boxBGColor = themeColors[1 if v['theme_switch'].value else 0]['boxbg']
@@ -364,15 +361,17 @@ def createNewBox(center=None, width=None, height=None):
     box.flex = 'WHLRTB'
     box.name = 'rangeBox' + str(boxCount)
     if center and width and height:
-        box.center = center
         box.width = width
         box.height = height
+        box.center = center
+        print('CREATE BOX', center)
     else:
         box.bounds = (0,0,200,200)
         imageViewCenterGap = [a-b for (a, b) in zip(v['Image'].center, centerPos)]
         centerPosInImageView = (v['Image'].width / 2, v['Image'].height / 2)
         box.center = [a-b for (a, b) in zip(centerPosInImageView, imageViewCenterGap)]
     v['Image'].add_subview(box)
+    print('実際のBOX', v['Image']['rangeBox' + str(boxCount)].center, center)
     boxCount += 1
     selectBox()
 
@@ -402,6 +401,8 @@ def loadAnnotationFile():
     global assets
     global photoNum
     
+    print('LOAD BOXES')
+    
     photoAsset = assets[photoNum]
     
     photoFileName = str(ObjCInstance(photoAsset).filename())
@@ -427,6 +428,7 @@ def loadAnnotationFile():
             float(args[3]),
             float(args[4])
             )
+        print('YOKO->BOX', box)
         createNewBox(
             center=(box['x'], box['y']),
             width=box['width'],
@@ -480,34 +482,41 @@ def getNowImage():
 def getPhotoPosAndScale():
     global photoNum
     global assets
+    photo = assets[photoNum]
     
-    imageViewScale = (v['Image'].width, v['Image'].height)
-    photoAsset = assets[photoNum]
-    photoScale = (photoAsset.pixel_width, photoAsset.pixel_height)
+    imageViewVerticalRatio = v['Image'].height / v['Image'].width
+    photoVerticalRatio = photo.pixel_height / photo.pixel_width
     
-    isVerticalBlank = False
-    if photoScale[1] * (imageViewScale[0] / photoScale[0]) < imageViewScale[1]:
-        isVerticalBlank = True
-    
-    if isVerticalBlank:
+    if imageViewVerticalRatio > photoVerticalRatio: # 上下余白の場合
+        mag = v['Image'].width / photo.pixel_width # 倍率
         return {
             'x': 0,
-            'y': (imageViewScale[1] - photoScale[1] * (imageViewScale[0] / photoScale[0])) / 2,
-            'width': imageViewScale[0],
-            'height': photoScale[1] * (imageViewScale[0] / photoScale[0])
+            'y': (v['Image'].height - (photo.pixel_height * mag)) / 2,
+            'width': v['Image'].width,
+            'height': photo.pixel_height * mag
         }
-    else:
+    else:                                           # 左右余白の場合
+        mag = v['Image'].height / photo.pixel_height # 倍率
         return {
-            'x': (imageViewScale[0] - photoScale[0] * (imageViewScale[1] / photoScale[1])) / 2,
             'y': 0,
-            'width': photoScale[0] * (imageViewScale[1] / photoScale[1]),
-            'height': photoScale[1]
+            'x': (v['Image'].width - (photo.pixel_width * mag)) / 2,
+            'height': v['Image'].height,
+            'width': photo.pixel_width * mag
         }
+    
+    return {
+        'x': 0,
+        'y': 0,
+        'width': 0,
+        'height': 0
+    }
 
 def onButtonDone(_):
     global boxCount
     global photoNum
     global assets
+    
+    print('WRITE BOXES')
     
     photoAsset = assets[photoNum]
     
@@ -814,18 +823,20 @@ def initSlideBarView():
         )
 
 centerPos = (0,0)
+padding = 6
 
 def initOverlaySystem():
     global v
     global centerPos
+    global padding
     saturationScreen = ui.View(frame=v['Image'].bounds ,flex='WH', name='saturationScreen')
     brightnessScreen = ui.View(frame=v['Image'].bounds ,flex='WH', name='brightnessScreen')
     
     saturationScreen.background_color = 'white'
     brightnessScreen.background_color = 'black'
     
-    saturationScreen.alpha = 0.7
-    brightnessScreen.alpha = 0.7
+    saturationScreen.alpha = 0.0
+    brightnessScreen.alpha = 0.0
     
     v['Image'].add_subview(saturationScreen)
     v['Image'].add_subview(brightnessScreen)
@@ -836,15 +847,15 @@ def initOverlaySystem():
     ss.continuous = True
     bs.continuous = True
     
-    sliderLeftTopPos = ss.bounds[2:4]
-    sliderLeftTopPos = bs.bounds[2:4] + (bs.width, 0)
+    sliderLeftX = ss.x
+    sliderRightX = bs.x + bs.width
     
-    width = centerPos[0] - 3 - sliderLeftTopPos[0]
+    width = (sliderRightX - sliderLeftX) / 2 - padding / 2
     
     ss.width = width
     bs.width = width
     
-    bs.x = centerPos[0] + 3
+    bs.x = (sliderRightX + sliderLeftX) / 2 + padding / 2
     
     
 

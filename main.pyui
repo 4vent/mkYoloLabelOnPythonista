@@ -8,11 +8,11 @@
         "frame" : "{{0, 0}, {512, 512}}",
         "class" : "ImageView",
         "attributes" : {
-          "name" : "Image",
+          "custom_attributes" : "",
           "frame" : "{{206, 206}, {100, 100}}",
           "flex" : "WH",
-          "custom_attributes" : "",
           "class" : "ImageView",
+          "name" : "Image",
           "uuid" : "48A42CB2-D4EA-4628-88CB-A7179AB6BBBB"
         },
         "selected" : false
@@ -49,7 +49,7 @@
           "border_color" : "RGBA(0.000000,1.000000,0.000000,1.000000)",
           "name" : "guidBox"
         },
-        "selected" : true
+        "selected" : false
       },
       {
         "nodes" : [
@@ -256,14 +256,14 @@
         "class" : "Label",
         "attributes" : {
           "flex" : "WT",
-          "name" : "holizontal_slide_bar_view",
+          "font_size" : 18,
           "frame" : "{{181, 240}, {150, 32}}",
           "uuid" : "88BD581D-EEB2-4370-9A7A-F90EAC88BEBD",
           "class" : "Label",
           "alignment" : "left",
           "text" : "Label",
           "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
-          "font_size" : 18,
+          "name" : "holizontal_slide_bar_view",
           "font_name" : "<System>"
         },
         "selected" : false
@@ -276,14 +276,14 @@
         "class" : "Label",
         "attributes" : {
           "flex" : "HR",
-          "font_size" : 18,
+          "name" : "vertical_slide_bar_view",
           "frame" : "{{181, 240}, {150, 32}}",
           "uuid" : "4A1EF183-BF38-4F32-8547-6216C0303181",
           "class" : "Label",
           "alignment" : "left",
           "text" : "Label",
           "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
-          "name" : "vertical_slide_bar_view",
+          "font_size" : 18,
           "font_name" : "<System>"
         },
         "selected" : false
@@ -296,14 +296,14 @@
         "class" : "Slider",
         "attributes" : {
           "action" : "onBrightnessSlider",
-          "flex" : "WLB",
+          "flex" : "LB",
           "frame" : "{{156, 239}, {200, 34}}",
           "uuid" : "C16FCEFE-2D7B-4DF8-A928-E9AFB958113B",
           "class" : "Slider",
           "value" : 0,
           "name" : "brightness_slider"
         },
-        "selected" : false
+        "selected" : true
       },
       {
         "nodes" : [
@@ -329,7 +329,7 @@
         "class" : "Slider",
         "attributes" : {
           "action" : "onSaturationSlider",
-          "flex" : "WRB",
+          "flex" : "RB",
           "frame" : "{{156, 239}, {200, 34}}",
           "uuid" : "C16FCEFE-2D7B-4DF8-A928-E9AFB958113B",
           "class" : "Slider",
@@ -342,11 +342,11 @@
     "frame" : "{{0, 0}, {512, 512}}",
     "class" : "View",
     "attributes" : {
-      "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
+      "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
       "enabled" : true,
+      "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
       "tint_color" : "RGBA(0.000000,0.478000,1.000000,1.000000)",
       "name" : "",
-      "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
       "flex" : ""
     },
     "selected" : false
