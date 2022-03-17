@@ -40,6 +40,56 @@ def compairString(large, small):
             else:
                 return False
 
+def yoloPos2BoxPos(
+    photoX,
+    photoY,
+    photoWidth,
+    photoHeight,
+    yoloCenterX,
+    yoloCenterY,
+    yoloWidth,
+    yoloHeight
+    ):
+    console.hud_alert(str(float(yoloCenterX) * photoWidth + photoX))
+    return {
+        'x': float(yoloCenterX) * photoWidth + photoX,
+        'y': float(yoloCenterY) * photoHeight + photoY,
+        'width': float(yoloWidth) * photoWidth,
+        'height': float(yoloHeight) * photoHeight
+    }
+
+def boxPos2YoloPos(
+    photoX,
+    photoY,
+    photoWidth,
+    photoHeight,
+    boxCenterX,
+    boxCenterY,
+    boxWidth,
+    boxHeight
+    ):
+    console.hud_alert(str(boxCenterX))
+    return {
+        'x': (boxCenterX - photoX) / float(photoWidth),
+        'y': (boxCenterY - photoY) / float(photoHeight),
+        'width': boxWidth / float(photoWidth),
+        'height': boxHeight / float(photoHeight)
+    }
+
+def makeYoloAnotationLine(photo, boxView):
+    yoloLine = boxPos2YoloPos(
+        photo['x'],
+        photo['y'],
+        photo['width'],
+        photo['height'],
+        boxView.center[0],
+        boxView.center[1],
+        boxView.width,
+        boxView.height
+        )
+    
+    return '{} {:.6f} {:.6f} {:.6f} {:.6f}'.format(0, yoloLine["x"], yoloLine["y"], yoloLine["width"], yoloLine["height"])
+
 def sortedAlbums(albumAssetCollections):
     sorted = []
     for AAC in albumAssetCollections:
@@ -89,12 +139,26 @@ def setTouchBeganPos(location):
 
 lastTouchLocation = (0.0,0.0)
 
-def moveImage(location):
+def moveImage(location, canMove='notthing'):
     global imageLastPos
     global touchBeganPos
     global lastTouchLocation
+    global trueLastTouchLocation
+    
+    mgn = 0.01
+    
     dpos = [da-a for (a, da) in zip(lastTouchLocation, location)]
-    v['Image'].center += dpos # [a+da for (a, da) in zip(imageLastPos, dpos)]
+    
+    tDpos = [da-a for (a, da) in zip(trueLastTouchLocation, location)]
+    
+    if canMove == 'horizontal':
+        dx = dpos[0] * (2 ** -(abs(tDpos[1]) * mgn))
+        v['Image'].center += (dx, 0)
+    elif canMove == 'vertical':
+        dy = dpos[1] * (2 ** -(abs(tDpos[0]) * mgn))
+        v['Image'].center += (0, dy)
+    else:
+        v['Image'].center += dpos # [a+da for (a, da) in zip(imageLastPos, dpos)]
     lastTouchLocation = location
 
 lastScale = 1.0
@@ -133,7 +197,6 @@ def onSliderZoom(_):
     global centerPos
     imageZoomBySliderValue(centerPos)
     
-    
 lastSliderValue = 0
 
 def setLastZoomScale():
@@ -148,7 +211,6 @@ def zoomWithDoubletouch(touch):
     dy = touch.location[1] - touchBeganPos[1]
     v['slider_zoom'].value = lastSliderValue + dy / coef
     imageZoomBySliderValue(touchBeganPos)
-
 
 def createAncorGuide():
     global ancorGuideNames
@@ -272,7 +334,7 @@ def moveAncor(touch):
         selectedBox.y = boxData['absy'] + dpos[1]
         selectedBox.x = boxData['absx'] + dpos[0]
 
-def createNewBox():
+def createNewBox(center=None, width=None, height=None):
     global boxCount
     global v
     global centerPos
@@ -301,28 +363,21 @@ def createNewBox():
     box.background_color = boxBGColor
     box.flex = 'WHLRTB'
     box.name = 'rangeBox' + str(boxCount)
-    box.bounds = (0,0,200,200)
+    if center and width and height:
+        box.center = center
+        box.width = width
+        box.height = height
+    else:
+        box.bounds = (0,0,200,200)
+        imageViewCenterGap = [a-b for (a, b) in zip(v['Image'].center, centerPos)]
+        centerPosInImageView = (v['Image'].width / 2, v['Image'].height / 2)
+        box.center = [a-b for (a, b) in zip(centerPosInImageView, imageViewCenterGap)]
     v['Image'].add_subview(box)
-    imageViewCenterGap = [a-b for (a, b) in zip(v['Image'].center, centerPos)]
-    centerPosInImageView = (v['Image'].width / 2, v['Image'].height / 2)
-    v['Image']['rangeBox' + str(boxCount)].center = [a-b for (a, b) in zip(centerPosInImageView, imageViewCenterGap)]
     boxCount += 1
     selectBox()
 
 def onButtonCreate(_):
     createNewBox()
-
-def makeYoloAnotationLine(imageTopLeftPos, imageBottomRightPos, boxView):
-    width = imageBottomRightPos[0] - imageTopLeftPos[0]
-    height = imageBottomRightPos[1] - imageTopLeftPos[1]
-    yoloLine = {
-        'label': 0,
-        'x': (boxView.x - imageTopLeftPos[0] + boxView.width / 2) / width,
-        'y': (boxView.y - imageTopLeftPos[1] + boxView.height / 2) / height,
-        'w': boxView.width / width,
-        'h': boxView.height / height
-    }
-    return '{} {:.6f} {:.6f} {:.6f} {:.6f}'.format(yoloLine["label"], yoloLine["x"], yoloLine["y"], yoloLine["w"], yoloLine["h"])
 
 def clearAllBox():
     global v
@@ -342,6 +397,41 @@ def updateProgressLabel():
     global photoNum
     global assets
     v['progress_label'].text = '{}/{}'.format(photoNum+1, len(assets))
+    
+def loadAnnotationFile():
+    global assets
+    global photoNum
+    
+    photoAsset = assets[photoNum]
+    
+    photoFileName = str(ObjCInstance(photoAsset).filename())
+    annotationFileName = os.path.splitext(photoFileName)[0] + '.txt'
+    
+    if not os.path.exists('result/' + annotationFileName):
+        return
+    
+    photoInImageView = getPhotoPosAndScale()
+    lines = []
+    with open('result/' + annotationFileName)  as f:
+        lines = f.readlines()
+    
+    for line in lines:
+        args = line.split(' ')
+        box = yoloPos2BoxPos(
+            photoInImageView['x'],
+            photoInImageView['y'],
+            photoInImageView['width'],
+            photoInImageView['height'],
+            float(args[1]),
+            float(args[2]),
+            float(args[3]),
+            float(args[4])
+            )
+        createNewBox(
+            center=(box['x'], box['y']),
+            width=box['width'],
+            height=box['height']
+            )
     
 
 photoNum = 0
@@ -364,6 +454,8 @@ def openImage():
         json.dump(lastedited, f)
     updateProgressLabel()
     
+    loadAnnotationFile()
+    
 def openNextImage():
     global photoNum
     global assets
@@ -384,28 +476,46 @@ def openPrevImagee():
 
 def getNowImage():
     pass
-    
-def onButtonDone(_):
+
+def getPhotoPosAndScale():
     global photoNum
     global assets
-    global boxCount
+    
     imageViewScale = (v['Image'].width, v['Image'].height)
     photoAsset = assets[photoNum]
     photoScale = (photoAsset.pixel_width, photoAsset.pixel_height)
     
-    tl, br = (), ()
-    if photoScale[0] * (imageViewScale[1] / photoScale[1]) > imageViewScale[0]: # 上下余白の場合
-        padding = (imageViewScale[1] - photoScale[1] * (imageViewScale[0] / photoScale[0])) / 2 # 余白の幅
-        tl = (0, padding)
-        br = (imageViewScale[0], imageViewScale[1] - padding)
-    else:                                                                       # 左右余白の場合
-        padding = (imageViewScale[0] - photoScale[0] * (imageViewScale[1] / photoScale[1])) / 2 # 余白の高さ
-        tl = (padding, 0)
-        br = (imageViewScale[0] - padding, imageViewScale[1])
+    isVerticalBlank = False
+    if photoScale[1] * (imageViewScale[0] / photoScale[0]) < imageViewScale[1]:
+        isVerticalBlank = True
+    
+    if isVerticalBlank:
+        return {
+            'x': 0,
+            'y': (imageViewScale[1] - photoScale[1] * (imageViewScale[0] / photoScale[0])) / 2,
+            'width': imageViewScale[0],
+            'height': photoScale[1] * (imageViewScale[0] / photoScale[0])
+        }
+    else:
+        return {
+            'x': (imageViewScale[0] - photoScale[0] * (imageViewScale[1] / photoScale[1])) / 2,
+            'y': 0,
+            'width': photoScale[0] * (imageViewScale[1] / photoScale[1]),
+            'height': photoScale[1]
+        }
+
+def onButtonDone(_):
+    global boxCount
+    global photoNum
+    global assets
+    
+    photoAsset = assets[photoNum]
+    
+    photoInImageView = getPhotoPosAndScale()
     
     yoloAnotationText = ''
     for i in range(boxCount):
-        line = makeYoloAnotationLine(tl, br, v['Image']['rangeBox' + str(i)])
+        line = makeYoloAnotationLine(photoInImageView, v['Image']['rangeBox' + str(i)])
         yoloAnotationText += line + '\n'
     
     if not boxCount == 0:
@@ -422,7 +532,7 @@ def onButtonDone(_):
                 f.write(yoloAnotationText)
             
     openNextImage()
-    
+
 def onButtonBack(_):
     openPrevImagee()
 
@@ -445,7 +555,7 @@ def getPinchDistance():
         (dict(activeTouchIDs).values()[0][1] - dict(activeTouchIDs).values()[1][1]) ** 2
     )
     return distance
-(む)
+
 def pinch():
     global v
     global pinchBeganDistance
@@ -473,11 +583,18 @@ ancorGuideNames = [
     'ancorGuideBR',
     'ancorGuideC',
     ]
-    
+
+class slideBarView():
+    notthing = 0
+    vertical = 1
+    holizontal = 2
+
 isAncorEditing = False
 lastTouchTimestamp = 0
 doubleTouchFlag = False
 multiTouchFlag = False
+hittingSlideBarView = slideBarView.notthing
+trueLastTouchLocation = (0,0)
 
 class touchView(ui.View):
     def touch_began(self, touch):
@@ -486,7 +603,12 @@ class touchView(ui.View):
         global doubleTouchFlag
         global activeTouchIDs
         global multiTouchFlag
+        global hittingSlideBarView
         activeTouchIDs[touch.touch_id] = touch.location
+        
+        global trueLastTouchLocation
+        trueLastTouchLocation = touch.location
+        
         if lastTouchTimestamp + 0.2 > touch.timestamp:
             doubleTouchFlag = True
             setLastZoomScale()
@@ -505,7 +627,16 @@ class touchView(ui.View):
         else:
             setTouchBeganPos(touch.location)
         hideAncorGuid()
-    
+        
+        global hittingSlideBarView
+        global vrt_hitbox
+        global hlz_hitbox
+        global slideBarView
+        if vrt_hitbox.hit_test(*touch.location):
+            hittingSlideBarView = slideBarView.vertical
+        elif hlz_hitbox.hit_test(*touch.location):
+            hittingSlideBarView = slideBarView.holizontal
+        
     def touch_moved(self, touch):
         global isAncorEditing
         global doubleTouchFlag
@@ -521,7 +652,14 @@ class touchView(ui.View):
             elif isAncorEditing:
                 moveAncor(touch)
             else:
-                moveImage(touch.location)
+                global hittingSlideBarView
+                global slideBarView
+                if hittingSlideBarView == slideBarView.vertical:
+                    moveImage(touch.location, canMove='vertical')
+                elif hittingSlideBarView == slideBarView.holizontal:
+                    moveImage(touch.location, canMove='horizontal')
+                else:
+                    moveImage(touch.location)
         
     def touch_ended(self, touch):
         global isAncorEditing
@@ -539,6 +677,10 @@ class touchView(ui.View):
         selectedAncor = None
         updateAncorGuid()
         showAncorGuid()
+        
+        global hittingSlideBarView
+        global slideBarView
+        hittingSlideBarView = slideBarView.notthing
 
 
 def setPhotoNumByPickAssets(assets):
@@ -630,15 +772,94 @@ def onSwitch2PColor(sender):
         v['Image']['rangeBox' + str(i)].background_color = themeColors[index]['boxbg']
         for j in range(9):
             v['Image']['rangeBox' + str(i)]['ancorDot' + str(j)].background_color = themeColors[index]['box']
-        
+
+def onSaturationSlider(sender):
+    v['Image']['saturationScreen'].alpha = sender.value
+
+def onBrightnessSlider(sender):
+    v['Image']['brightnessScreen'].alpha = sender.value
+
+vrt_hitbox = ui.Path
+hlz_hitbox = ui.Path
+
+def initSlideBarView():
+    global v
+    global vrt_hitbox
+    global hlz_hitbox
+    
+    vrt = v['vertical_slide_bar_view']
+    hlz = v['holizontal_slide_bar_view']
+    
+    vrt.touch_enabled, hlz.touch_enabled = False, False
+    
+    ObjCInstance(vrt).clipsToBounds, ObjCInstance(hlz).clipsToBounds = True, True
+    
+    vrt.corner_radius, hlz.corner_radius = 16, 16
+    
+    vrt.background_color, hlz.background_color = (0.5, 0.5, 0.5, 0.3), (0.5, 0.5, 0.5, 0.3)
+    
+    vrt.text, hlz.text = '', ''
+    
+    vrt_hitbox = ui.Path.rect(
+        vrt.x,
+        vrt.y,
+        vrt.width,
+        vrt.height
+        )
+    hlz_hitbox = ui.Path.rect(
+        hlz.x,
+        hlz.y,
+        hlz.width,
+        hlz.height
+        )
+
 centerPos = (0,0)
 
+def initOverlaySystem():
+    global v
+    global centerPos
+    saturationScreen = ui.View(frame=v['Image'].bounds ,flex='WH', name='saturationScreen')
+    brightnessScreen = ui.View(frame=v['Image'].bounds ,flex='WH', name='brightnessScreen')
+    
+    saturationScreen.background_color = 'white'
+    brightnessScreen.background_color = 'black'
+    
+    saturationScreen.alpha = 0.7
+    brightnessScreen.alpha = 0.7
+    
+    v['Image'].add_subview(saturationScreen)
+    v['Image'].add_subview(brightnessScreen)
+    
+    ss = v['saturation_slider']
+    bs = v['brightness_slider']
+    
+    ss.continuous = True
+    bs.continuous = True
+    
+    sliderLeftTopPos = ss.bounds[2:4]
+    sliderLeftTopPos = bs.bounds[2:4] + (bs.width, 0)
+    
+    width = centerPos[0] - 3 - sliderLeftTopPos[0]
+    
+    ss.width = width
+    bs.width = width
+    
+    bs.x = centerPos[0] + 3
+    
+    
+
+@on_main_thread
 def awake():
     global v
     initProgressLabel()
     v['touch_panel'].multitouch_enabled = True
     v['slider_zoom'].continuous = True
     v['Image'].content_mode = ui.CONTENT_SCALE_ASPECT_FIT
+    # (v['guidBox']).set_blend_mode(ui.BLEND_MULTIPLY)
+    
+    # v['guidBox'].bounds = (0,0,5200,5200)
+    # v['guidBox'].border_width = 2500
+    # v['guidBox'].border_color = 'black'
 
 def start():
     global v
@@ -646,9 +867,22 @@ def start():
     global initialImageScale
     centerPos = v['touch_panel'].center
     initialImageScale = [v['touch_panel'].height, v['touch_panel'].width]
+    createAncorGuide()
+    
+    v['guidBox'].center = centerPos
+    
+    initSlideBarView()
+    initOverlaySystem()
+    
     if not openLastEdetedFile():
         onButtonSelect('_')
-    createAncorGuide()
+    
+    def a():
+        v['curtain'].alpha = 0
+    def b():
+        v.remove_subview(v['curtain'])
+    ui.animate(a, completion=b)
+    
 
 if __name__ == '__main__':
     global v
