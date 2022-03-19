@@ -23,6 +23,7 @@ from compair_strings import compairString
 from get_string_width import getStringWidth
 from yolo_annotation_tools import yoloPos2BoxPos, boxPos2YoloPos, makeYoloAnotationLine
 from pythonista_photos_tools import getSortedAlbums, getAlbumWithDialog
+from random_color_generator import getRandomColor
 
 themeColors = config.theme_colors
 ancorGuideNames = config.ancore_guid_names
@@ -62,6 +63,8 @@ padding = 6
 
 photoNum = 0
 isEdited = False
+classes = []
+selectedLabelIndex = 0
 
 isAncorEditing = False
 lastTouchTimestamp = 0
@@ -69,6 +72,15 @@ doubleTouchFlag = False
 multiTouchFlag = False
 hittingSlideBarView = slideBarView.notthing
 trueLastTouchLocation = (0,0)
+
+### ------- ###
+### classes ###
+### ------- ###
+
+class labelClass():
+    def __init__(self, title, color) -> None:
+        self.title = title,
+        self.color = color
 
 ### ---------------------------------------- ###
 ### Standalone Tools (but use global values) ###
@@ -237,7 +249,7 @@ def hideAncorGuid():
 ### Label Box Control Functions ###
 ### --------------------------- ###
 
-def createNewBox(labelTitle='default', center=None, width=None, height=None):
+def createNewBox(labelNum=None, center=None, width=None, height=None):
     # print('create new box(title = {}, center = {}, width = {}, height = {})'.format(labelTitle, center, width, height))
     global boxCount
     global v
@@ -266,14 +278,19 @@ def createNewBox(labelTitle='default', center=None, width=None, height=None):
     box.name = 'rangeBox' + str(boxCount)
     
     # global labelColors
+    global classes
     label = ui.Label(name='label', flex='RB')
-    label.text = labelTitle
-    label.background_color = (0,0,0)
+    if labelNum == None or labelNum >= len(classes):
+        label.text = 'Error'
+        label.background_color = (0,0,0)
+    else:  
+        label.text = classes[labelNum].title
+        label.background_color = classes[labelNum].color
     label.text_color = (1,1,1)
     label.alignment = ui.ALIGN_CENTER
     label.x, label.y = 0, 0
     label.height = 18
-    stringWidth = getStringWidth(labelTitle)
+    stringWidth = getStringWidth(label.text)
     label.width = stringWidth * 9
     
     applyThemeColor(
@@ -664,14 +681,28 @@ def initOverlaySystem():
     
     bs.x = (sliderRightX + sliderLeftX) / 2 + padding / 2
 
-### ---------------------- ###
-### Main Rootine Functions ###
-### ---------------------- ###
+### --------------------------------- ###
+### Read and Write and Draw Functions ###
+### --------------------------------- ###
+
+def loadClassesFile():
+    global classes
+    with open('result/classes.txt', 'r') as f:
+        classTitles = f.read().split()
+    for c in classTitles:
+        classes.append(labelClass(c, getRandomColor(vMax=0.5)))
+
+def saveClassesFile():
+    global classes
+    classTitles = []
+    for c in classes:
+        classTitles.append(c.title)
+    with open('result/classes.txt', 'w') as f:
+        f.write('\n'.join(classTitles))
 
 def loadAnnotationFile():
     global assets
     global photoNum
-    
     
     photoAsset = assets[photoNum]
     
@@ -699,6 +730,7 @@ def loadAnnotationFile():
             float(args[4])
             )
         createNewBox(
+            labelNum=int(args[0]),
             center=(box['x'], box['y']),
             width=box['width'],
             height=box['height']
@@ -790,16 +822,17 @@ def openPhotoBySelectPhoto(_):
     setPhotoNumByPickAssets(assets)
     openImage()
 
-### --------------------------------- ###
-### Read and Write and Draw Functions ###
-### --------------------------------- ###
+### ---------------- ###
+### on ~~~ Functions ###
+### ---------------- ###
 
 def onSliderZoom(_):
     global centerPos
     imageZoomBySliderValue(centerPos)
 
 def onButtonCreate(_):
-    createNewBox()
+    global selectedLabelIndex
+    createNewBox(labelNum=selectedLabelIndex)
     global isEdited
     isEdited = True
 
