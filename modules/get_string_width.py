@@ -19,4 +19,4 @@ def getStringWidth(str=''):
 
 # debug
 
-print(getStringWidth('あほ'))
+# print(getStringWidth('あほ'))
