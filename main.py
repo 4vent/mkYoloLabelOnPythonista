@@ -15,231 +15,111 @@ import time
 import unicodedata
 
 import config
+from config import slideBarView
+from modules.ease import Ease
+from modules.compair_strings import compairString
+from modules.get_string_width import getStringWidth
+from modules.yolo_annotation_tools import yoloPos2BoxPos, boxPos2YoloPos, makeYoloAnotationLine
+from modules.pythonista_photos_tools import getSortedAlbums, getAlbumWithDialog
 
-themeColors = (
-    {
-        'box': (1.0, 0.0, 0.0, 0.0),
-        'boxbg': (1.0, 0.0, 0.0, 0.5),
-        'selectedbox': (1.0, 0.0, 0.0, 1.0),
-        'selectedboxbg': (1.0, 0.0, 0.0, 0.2),
-        'guide': (0.0, 1.0, 0.0, 1.0)
-    },
-    {
-        'box': (0.0, 1.0, 1.0, 0.0),
-        'boxbg': (0.0, 1.0, 1.0, 0.4),
-        'selectedbox': (0.0, 1.0, 1.0, 1.0),
-        'selectedboxbg': (0.0, 1.0, 1.0, 0.2),
-        'guide': (1.0, 0.0, 1.0, 1.0)
-    }
-)
+themeColors = config.theme_colors
+ancorGuideNames = config.ancore_guid_names
 
-class Ease():
-    @classmethod
-    def liner(self, start, end, progress):
-        return (end - start) * progress + start
-    @classmethod
-    def inSine(self, start, end, progress):
-        return (end - start) * (1 - math.cos(progress * math.pi / 2)) + start
-    @classmethod
-    def inQuad(self, start, end, progress):
-        return (end - start) * (progress ** 2) + start
-    @classmethod
-    def inQuad_inverse(self, start, end, value):
-        progress = math.sqrt(max((value - start) / (end - start), 0))
-        return progress
-    @classmethod
-    def InExpo(self, start, end, progress):
-        return  0 if x == 0 else pow(2, 10 * x - 10);
+### ------------- ###
+### Global Values ###
+### ------------- ###
 
-def compairString(large, small):
-    for l, s in zip(large, small):
-        if l == s:
-            continue
-        else:
-            if ord(l) > ord(s):
-                return True
-            else:
-                return False
+is2PColor = False
+selectedThemeIndex = 0
 
-def getStringWidth(str=''):
-    width = 0
-    half = ['H', 'Na', 'N']
-    for c in str:
-        uc = unicode(c)
-        if unicodedata.east_asian_width(uc) in half:
-            width += 1
-        else:
-            width += 2
-    return width
+selectedAncor = 'tl'
+ancorHitboxSize = 5
 
-def yoloPos2BoxPos(
-    photoX,
-    photoY,
-    photoWidth,
-    photoHeight,
-    yoloCenterX,
-    yoloCenterY,
-    yoloWidth,
-    yoloHeight
-    ):
-    return {
-        'x': float(yoloCenterX) * photoWidth + photoX,
-        'y': float(yoloCenterY) * photoHeight + photoY,
-        'width': float(yoloWidth) * photoWidth,
-        'height': float(yoloHeight) * photoHeight
-    }
-
-def boxPos2YoloPos(
-    photoX,
-    photoY,
-    photoWidth,
-    photoHeight,
-    boxCenterX,
-    boxCenterY,
-    boxWidth,
-    boxHeight
-    ):
-    return {
-        'x': (boxCenterX - photoX) / float(photoWidth),
-        'y': (boxCenterY - photoY) / float(photoHeight),
-        'width': boxWidth / float(photoWidth),
-        'height': boxHeight / float(photoHeight)
-    }
-
-def makeYoloAnotationLine(photo, boxView):
-    yoloLine = boxPos2YoloPos(
-        photo['x'],
-        photo['y'],
-        photo['width'],
-        photo['height'],
-        boxView.center[0],
-        boxView.center[1],
-        boxView.width,
-        boxView.height
-        )
-    return '{} {:.6f} {:.6f} {:.6f} {:.6f}'.format(0, yoloLine["x"], yoloLine["y"], yoloLine["width"], yoloLine["height"])
-
-def sortedAlbums(albumAssetCollections):
-    sorted = []
-    for AAC in albumAssetCollections:
-        for i, s in enumerate(sorted):
-            if not compairString(AAC.title, s.title):
-                sorted.insert(i, AAC)
-                break
-        else:
-            sorted.append(AAC)
-    return sorted
-
-def getAlbumWithDialog():
-    albumAssetCollections = photos.get_albums()
-    albumAssetCollections = sortedAlbums(albumAssetCollections)
-    albumTitles = [a.title for a in albumAssetCollections]
-    selectedAlbumTitle = dialogs.list_dialog(
-        title='アルバムを選択',
-        items=albumTitles
-        )
-    
-    if selectedAlbumTitle == None:
-        exit()
-    else:
-        selectedAlbumNum = albumTitles.index(selectedAlbumTitle)
-        return albumAssetCollections[selectedAlbumNum]
+boxCount = 0
+boxData = {}
+selectedBox = None
+selectedBoxIndex = 0
 
 imageLastPos = (0,0)
 trueImageLastPos = (0,0)
-
-def setImageLastPos():
-    global v
-    global imageLastPos
-    global trueImageLastPos
-    global trueLastScale
-    global lastScale
-    imageLastPos = v['Image'].center
-    trueImageLastPos = v['Image'].center
-    trueLastScale = lastScale
-    
 touchBeganPos = (0,0)
-
-def setTouchBeganPos(location):
-    global touchBeganPos
-    global lastTouchLocation
-    touchBeganPos = location
-    lastTouchLocation = location
-
-lastTouchLocation = (0.0,0.0)
-
-def moveImage(location, canMove='notthing'):
-    global imageLastPos
-    global touchBeganPos
-    global lastTouchLocation
-    global trueLastTouchLocation
-    
-    mgn = 0.01
-    
-    dpos = [da-a for (a, da) in zip(lastTouchLocation, location)]
-    
-    tDpos = [da-a for (a, da) in zip(trueLastTouchLocation, location)]
-    
-    if canMove == 'horizontal':
-        dx = dpos[0] * (2 ** -(abs(tDpos[1]) * mgn))
-        v['Image'].center += (dx, 0)
-    elif canMove == 'vertical':
-        dy = dpos[1] * (2 ** -(abs(tDpos[0]) * mgn))
-        v['Image'].center += (0, dy)
-    else:
-        v['Image'].center += dpos # [a+da for (a, da) in zip(imageLastPos, dpos)]
-    lastTouchLocation = location
+lastTouchLocation = (0,0)
+activeTouchIDs = {}
 
 lastScale = 1.0
 trueLastScale = 1.0
 initialImageScale = (0, 0)
-
-def imageZoom(zoomCenter, scale, isUpdateSlider=False):
-    global v
-    global initialImageScale
-    global lastScale
-    global ancorHitboxSize
-    global imageLastPos
-    ancorHitboxSize = min(Ease.inSine(10,200,v['slider_zoom'].value), 70)
-    v['Image'].height, v['Image'].width = initialImageScale[0] * scale, initialImageScale[1] * scale
-    v['Image'].x -= (scale / lastScale - 1) * (zoomCenter[0] - v['Image'].x)
-    v['Image'].y -= (scale / lastScale - 1) * (zoomCenter[1] - v['Image'].y)
-    imageLastPos = (
-        (imageLastPos[0] - zoomCenter[0]) * (scale / lastScale) + zoomCenter[0],
-        (imageLastPos[1] - zoomCenter[1]) * (scale / lastScale) + zoomCenter[1]
-        )
-    lastScale = scale
-    
-    global boxCount
-    if not boxCount == 0:
-        global selectedBox
-        setAncorValue(selectedBox)
-        
-    if isUpdateSlider:
-        v['slider_zoom'].value = Ease.inQuad_inverse(1, 16, scale)
-
-def imageZoomBySliderValue(zoomCenter):
-    scale = Ease.inQuad(1, 16, v['slider_zoom'].value)
-    imageZoom(zoomCenter, scale)
-
-def onSliderZoom(_):
-    global centerPos
-    imageZoomBySliderValue(centerPos)
-    
 lastSliderValue = 0
+pinchBeganDistance = 0.0
 
-def setLastZoomScale():
-    global lastSliderValue
-    lastSliderValue = v['slider_zoom'].value
+vrt_hitbox = ui.Path
+hlz_hitbox = ui.Path
 
-def zoomWithDoubletouch(touch):
-    global touchBeganPos
-    global lastSliderValue
-    global v
-    coef = 800
-    dy = touch.location[1] - touchBeganPos[1]
-    v['slider_zoom'].value = lastSliderValue + dy / coef
-    imageZoomBySliderValue(touchBeganPos)
+centerPos = (0,0)
+padding = 6
+
+photoNum = 0
+isEdited = False
+
+isAncorEditing = False
+lastTouchTimestamp = 0
+doubleTouchFlag = False
+multiTouchFlag = False
+hittingSlideBarView = slideBarView.notthing
+trueLastTouchLocation = (0,0)
+
+### ---------------------------------------- ###
+### Standalone Tools (but use global values) ###
+### ---------------------------------------- ###
+
+def applyThemeColor(index, isSingleContent=False, contentType=None, content=None, isSelectedBox=True):
+    global themeColors
+    global boxCount
+    global selectedBox
+    global selectedThemeIndex
+    
+    selectedThemeIndex = index
+    
+    # guide
+    if not isSingleContent or contentType == 'guideBox':
+        c = content if isSingleContent else v['guidBox']
+        c.border_color = themeColors[index]['guide']
+    
+    if not isSingleContent: 
+        if boxCount == 0:
+            return
+        for i in range(boxCount):
+            v['Image']['rangeBox' + str(i)].border_color = themeColors[index]['box']
+            v['Image']['rangeBox' + str(i)].background_color = themeColors[index]['boxbg']
+            for view in v['Image']['rangeBox' + str(i)].subviews:
+                if not view.name.startswith('ancorDot'):
+                    continue
+                view.background_color = themeColors[index]['box']
+    
+    # selectedBox
+    if not isSingleContent:
+        if boxCount == 0:
+            return
+        selectedBox.border_color = themeColors[index]['selectedbox']
+        selectedBox.background_color = themeColors[index]['selectedboxbg']
+        for view in selectedBox.subviews:
+            if not view.name.startswith('ancorDot'):
+                continue
+            view.background_color = themeColors[index]['selectedbox']
+
+    if isSingleContent and contentType == 'box':
+        boxColor = 'selectedbox' if isSelectedBox else 'box'
+        boxBGcolor = 'selectedboxbg' if isSelectedBox else 'boxbg'
+        content.border_color = themeColors[index][boxColor]
+        content.background_color = themeColors[index][boxBGcolor]
+        for view in content.subviews:
+            if not view.name.startswith('ancorDot'):
+                continue
+            view.background_color = themeColors[index][boxColor]
+
+### ------------------------- ###
+### Controle Ancore Functions ###
+### ------------------------- ###
 
 def createAncorGuide():
     global ancorGuideNames
@@ -250,21 +130,19 @@ def createAncorGuide():
         view.alpha = 0.0
         v['ancor_guide_layer'].add_subview(view)
 
-def showAncorGuid():
-    global v
-    if not v['show_ancor_guid_switch'].value:
-        return
-    global ancorGuideNames
-    global boxCount
-    if boxCount == 0:
-        return
-    for agn in ancorGuideNames:
-        v['ancor_guide_layer'][agn].alpha = 1.0
-
-def hideAncorGuid():
-    global ancorGuideNames
-    for agn in ancorGuideNames:
-        v['ancor_guide_layer'][agn].alpha = 0.0
+def getAncorsPos():
+    global boxData
+    return (
+        (boxData['x']                   , boxData['y']                   ), # tl
+        (boxData['x'] + boxData['w'] / 2, boxData['y']                   ), # tm
+        (boxData['x'] + boxData['w']    , boxData['y']                   ), # tr
+        (boxData['x']                   , boxData['y'] + boxData['h'] / 2), # ml
+        (boxData['x'] + boxData['w']    , boxData['y'] + boxData['h'] / 2), # mr
+        (boxData['x']                   , boxData['y'] + boxData['h']    ), # bl
+        (boxData['x'] + boxData['w'] / 2, boxData['y'] + boxData['h']    ), # bm
+        (boxData['x'] + boxData['w']    , boxData['y'] + boxData['h']    ), # br
+        (boxData['x'] + boxData['w'] / 2, boxData['y'] + boxData['h'] / 2), # center
+        )
 
 def updateAncorGuid():
     global boxCount
@@ -278,10 +156,6 @@ def updateAncorGuid():
         v['ancor_guide_layer'][agn].width = ancorHitboxSize * 2
         v['ancor_guide_layer'][agn].height = ancorHitboxSize * 2
         v['ancor_guide_layer'][agn].corner_radius =  ancorHitboxSize
-    
-boxCount = 0
-
-boxData = {}
 
 def setAncorValue(box):
     global v
@@ -302,56 +176,24 @@ def setAncorValue(box):
     updateAncorGuid()
     # print(boxData)
 
-selectedBox = None
-selectedBoxIndex = 0
-
-def selectBox(index):
-    global selectedBox
-    global selectedBoxIndex
-    global v
-    global themeColors
-    global selectedThemeIndex
-    
-    if boxCount == 0:
-        return 
-    
-    selectedBoxIndex = index
-    
-    if selectedBox:
-        applyThemeColor(
-            selectedThemeIndex,
-            isSingleContent = True,
-            contentType = 'box',
-            content = selectedBox,
-            isSelectedBox = False
-            )
-    selectedBox = v['Image']['rangeBox' + str(index)]
-    applyThemeColor(
-        selectedThemeIndex,
-        isSingleContent = True,
-        contentType = 'box',
-        content = selectedBox,
-        isSelectedBox = True
-        )
-    
-    setAncorValue(selectedBox)
-
-selectedAncor = 'tl'
-ancorHitboxSize = 5
-
-def getAncorsPos():
+def moveAncor(touch):
     global boxData
-    return (
-        (boxData['x']                   , boxData['y']                   ), # tl
-        (boxData['x'] + boxData['w'] / 2, boxData['y']                   ), # tm
-        (boxData['x'] + boxData['w']    , boxData['y']                   ), # tr
-        (boxData['x']                   , boxData['y'] + boxData['h'] / 2), # ml
-        (boxData['x'] + boxData['w']    , boxData['y'] + boxData['h'] / 2), # mr
-        (boxData['x']                   , boxData['y'] + boxData['h']    ), # bl
-        (boxData['x'] + boxData['w'] / 2, boxData['y'] + boxData['h']    ), # bm
-        (boxData['x'] + boxData['w']    , boxData['y'] + boxData['h']    ), # br
-        (boxData['x'] + boxData['w'] / 2, boxData['y'] + boxData['h'] / 2), # center
-        )
+    global touchBeganPos
+    global selectedAncor
+    dpos = [b-a for (a, b) in zip(touchBeganPos, touch.location)]
+    if selectedAncor in ['tl', 'tr', 'tm']:
+        selectedBox.y = boxData['absy'] + min(dpos[1], boxData['h'])
+        selectedBox.height = max(boxData['h'] - dpos[1], 1)
+    if selectedAncor in ['bl', 'br', 'bm']:
+        selectedBox.height = max(boxData['h'] + dpos[1], 1)
+    if selectedAncor in ['tl', 'bl', 'ml']:
+        selectedBox.x = boxData['absx'] + min(dpos[0], boxData['w'])
+        selectedBox.width = max(boxData['w'] - dpos[0], 1)
+    if selectedAncor in ['tr', 'br', 'mr']:
+        selectedBox.width = max(boxData['w'] + dpos[0], 1)
+    if selectedAncor in ['center']:
+        selectedBox.y = boxData['absy'] + dpos[1]
+        selectedBox.x = boxData['absx'] + dpos[0]
 
 def getNearestAncor(touch):
     global boxCount
@@ -373,24 +215,25 @@ def getNearestAncor(touch):
             
     return flag
 
-def moveAncor(touch):
-    global boxData
-    global touchBeganPos
-    global selectedAncor
-    dpos = [b-a for (a, b) in zip(touchBeganPos, touch.location)]
-    if selectedAncor in ['tl', 'tr', 'tm']:
-        selectedBox.y = boxData['absy'] + min(dpos[1], boxData['h'])
-        selectedBox.height = max(boxData['h'] - dpos[1], 1)
-    if selectedAncor in ['bl', 'br', 'bm']:
-        selectedBox.height = max(boxData['h'] + dpos[1], 1)
-    if selectedAncor in ['tl', 'bl', 'ml']:
-        selectedBox.x = boxData['absx'] + min(dpos[0], boxData['w'])
-        selectedBox.width = max(boxData['w'] - dpos[0], 1)
-    if selectedAncor in ['tr', 'br', 'mr']:
-        selectedBox.width = max(boxData['w'] + dpos[0], 1)
-    if selectedAncor in ['center']:
-        selectedBox.y = boxData['absy'] + dpos[1]
-        selectedBox.x = boxData['absx'] + dpos[0]
+def showAncorGuid():
+    global v
+    if not v['show_ancor_guid_switch'].value:
+        return
+    global ancorGuideNames
+    global boxCount
+    if boxCount == 0:
+        return
+    for agn in ancorGuideNames:
+        v['ancor_guide_layer'][agn].alpha = 1.0
+
+def hideAncorGuid():
+    global ancorGuideNames
+    for agn in ancorGuideNames:
+        v['ancor_guide_layer'][agn].alpha = 0.0
+
+### --------------------------- ###
+### Label Box Control Functions ###
+### --------------------------- ###
 
 def createNewBox(labelTitle='default', center=None, width=None, height=None):
     global boxCount
@@ -452,10 +295,36 @@ def createNewBox(labelTitle='default', center=None, width=None, height=None):
     boxCount += 1
     selectBox(boxCount - 1)
 
-def onButtonCreate(_):
-    createNewBox()
-    global isEdited
-    isEdited = True
+def selectBox(index):
+    global selectedBox
+    global selectedBoxIndex
+    global v
+    global themeColors
+    global selectedThemeIndex
+    
+    if boxCount == 0:
+        return 
+    
+    selectedBoxIndex = index
+    
+    if selectedBox:
+        applyThemeColor(
+            selectedThemeIndex,
+            isSingleContent = True,
+            contentType = 'box',
+            content = selectedBox,
+            isSelectedBox = False
+            )
+    selectedBox = v['Image']['rangeBox' + str(index)]
+    applyThemeColor(
+        selectedThemeIndex,
+        isSingleContent = True,
+        contentType = 'box',
+        content = selectedBox,
+        isSelectedBox = True
+        )
+    
+    setAncorValue(selectedBox)
 
 def clearAllBox():
     global v
@@ -463,231 +332,12 @@ def clearAllBox():
     for i in range(boxCount):
         v['Image'].remove_subview(v['Image']['rangeBox' + str(i)])
     boxCount = 0
-    
-@on_main_thread
-def initProgressLabel():
-    v['progress_label'].background_color = (1.0, 1.0, 1.0, 0.7)
-    v['progress_label'].corner_radius = 16
-    ObjCInstance(v['progress_label']).clipsToBounds = True
 
-def updateProgressLabel():
-    global v
-    global photoNum
-    global assets
-    v['progress_label'].text = '{}/{}'.format(photoNum+1, len(assets))
-    
-def loadAnnotationFile():
-    global assets
-    global photoNum
-    
-    
-    photoAsset = assets[photoNum]
-    
-    photoFileName = str(ObjCInstance(photoAsset).filename())
-    annotationFileName = os.path.splitext(photoFileName)[0] + '.txt'
-    
-    if not os.path.exists('result/' + annotationFileName):
-        return
-    
-    photoInImageView = getPhotoPosAndScale()
-    lines = []
-    with open('result/' + annotationFileName)  as f:
-        lines = f.readlines()
-    
-    for line in lines:
-        args = line.split(' ')
-        box = yoloPos2BoxPos(
-            photoInImageView['x'],
-            photoInImageView['y'],
-            photoInImageView['width'],
-            photoInImageView['height'],
-            float(args[1]),
-            float(args[2]),
-            float(args[3]),
-            float(args[4])
-            )
-        createNewBox(
-            center=(box['x'], box['y']),
-            width=box['width'],
-            height=box['height']
-            )
-    
+### ----------------------- ###
+### Display Touch Functions ###
+### ----------------------- ###
 
-photoNum = 0
-isEdited = False
-
-def openImage():
-    global photoNum
-    global assets
-    global centerPos
-    global v
-    
-    v['slider_zoom'].value = 0
-    onSliderZoom('_')
-    v['Image'].center = centerPos
-    clearAllBox()
-    v['Image'].image = assets[photoNum].get_ui_image()
-    with open('lastedited.json', 'r') as f:
-        lastedited = json.load(f)
-        lastedited['assetid'] = assets[photoNum].local_id
-    with open('lastedited.json', 'w') as f:
-        json.dump(lastedited, f)
-    updateProgressLabel()
-    
-    loadAnnotationFile()
-    
-    global isEdited
-    isEdited = False
-    
-def openNextImage():
-    global photoNum
-    global assets
-    if photoNum == len(assets) - 1:
-        dialogs.alert('最新の写真です。', button1='OK', hide_cancel_button=True)
-    else:
-        photoNum += 1
-    openImage()
-
-def openPrevImagee():
-    global photoNum
-    global assets
-    if photoNum == 0:
-        dialogs.alert('最初の写真です',  button1='OK', hide_cancel_button=True)
-    else:
-        photoNum -= 1
-    openImage()
-
-def getNowImage():
-    pass
-
-def getPhotoPosAndScale():
-    global photoNum
-    global assets
-    photo = assets[photoNum]
-    
-    imageViewVerticalRatio = v['Image'].height / v['Image'].width
-    photoVerticalRatio = photo.pixel_height / photo.pixel_width
-    
-    if imageViewVerticalRatio > photoVerticalRatio: # 上下余白の場合
-        mag = v['Image'].width / photo.pixel_width # 倍率
-        return {
-            'x': 0,
-            'y': (v['Image'].height - (photo.pixel_height * mag)) / 2,
-            'width': v['Image'].width,
-            'height': photo.pixel_height * mag
-        }
-    else:                                           # 左右余白の場合
-        mag = v['Image'].height / photo.pixel_height # 倍率
-        return {
-            'y': 0,
-            'x': (v['Image'].width - (photo.pixel_width * mag)) / 2,
-            'height': v['Image'].height,
-            'width': photo.pixel_width * mag
-        }
-    
-    return {
-        'x': 0,
-        'y': 0,
-        'width': 0,
-        'height': 0
-    }
-
-def onButtonDone(_):
-    global boxCount
-    global photoNum
-    global assets
-    
-    global isEdited
-    if not isEdited:
-        openNextImage()
-        return 
-    
-    photoAsset = assets[photoNum]
-    
-    photoInImageView = getPhotoPosAndScale()
-    
-    yoloAnotationText = ''
-    for i in range(boxCount):
-        line = makeYoloAnotationLine(photoInImageView, v['Image']['rangeBox' + str(i)])
-        yoloAnotationText += line + '\n'
-    
-    if not boxCount == 0:
-        photoFileName = str(ObjCInstance(photoAsset).filename())
-        # annotationFileName = pathlib.PurePath(photoFileName).stem + '.txt'
-        annotationFileName = os.path.splitext(photoFileName)[0] + '.txt'
-        if os.path.exists('result/' + annotationFileName):
-            yesOrNo = console.alert('ファイルが存在します。', '上書きしますか？', 'はい', 'いいえ', hide_cancel_button=True)
-            if yesOrNo == 1:
-                with open('result/' + annotationFileName, 'w') as f:
-                    f.write(yoloAnotationText)
-        else:
-            with open('result/' + annotationFileName, 'w') as f:
-                f.write(yoloAnotationText)
-            
-    openNextImage()
-
-def onButtonBack(_):
-    openPrevImagee()
-
-activeTouchIDs = {}
-
-def getPinchCenterPos():
-    global activeTouchIDs
-    center = (
-        (dict(activeTouchIDs).values()[0][0] + dict(activeTouchIDs).values()[1][0]) / 2,
-        (dict(activeTouchIDs).values()[0][1] + dict(activeTouchIDs).values()[1][1]) / 2
-    )
-    return center
-
-pinchBeganDistance = 0.0
-
-def getPinchDistance():
-    global activeTouchIDs
-    distance = math.sqrt(
-        (dict(activeTouchIDs).values()[0][0] - dict(activeTouchIDs).values()[1][0]) ** 2 +
-        (dict(activeTouchIDs).values()[0][1] - dict(activeTouchIDs).values()[1][1]) ** 2
-    )
-    return distance
-
-def pinch():
-    global v
-    global pinchBeganDistance
-    global lastSliderValue
-    global trueLastScale
-    center = getPinchCenterPos()
-    pinchDistance = getPinchDistance()
-    zoomRate = (pinchDistance / pinchBeganDistance)
-    imageZoom(center, trueLastScale * zoomRate, isUpdateSlider=True)
-    #if zoomRate < 1:
-    #    v['slider_zoom'].value = lastSliderValue - Ease.inQuad_inverse(1, 16, 1/zoomRate)
-    #else:
-    #    v['slider_zoom'].value = lastSliderValue + Ease.inQuad_inverse(1, 16, zoomRate)
-    moveImage(center)
-    imageZoomBySliderValue(center)
-
-ancorGuideNames = [
-    'ancorGuideTL',
-    'ancorGuideTM',
-    'ancorGuideTR',
-    'ancorGuideML',
-    'ancorGuideMR',
-    'ancorGuideBL',
-    'ancorGuideBM',
-    'ancorGuideBR',
-    'ancorGuideC',
-    ]
-
-class slideBarView():
-    notthing = 0
-    vertical = 1
-    holizontal = 2
-
-isAncorEditing = False
-lastTouchTimestamp = 0
-doubleTouchFlag = False
-multiTouchFlag = False
-hittingSlideBarView = slideBarView.notthing
-trueLastTouchLocation = (0,0)
+### Touch Controle Class ###
 
 class touchView(ui.View):
     def touch_began(self, touch):
@@ -779,147 +429,169 @@ class touchView(ui.View):
         
         setAncorValue(selectedBox)
 
+### Move Functions ###
 
-def setPhotoNumByPickAssets(assets):
-    global photoNum
-    selectedAsset = photos.pick_asset(assets)
-    if not selectedAsset:
-        return
-    photoNum = assets.index(selectedAsset)
-
-def openLastEdetedFile():
-    global assets
-    global photoNum
-    with open('lastedited.json', 'r') as f:
-        lastEditing = json.loads(f.read())
-        if not 'albumid' in lastEditing:
-            return False
-        LEAlbumID = lastEditing['albumid']
-        albums = photos.get_albums()
-        if not LEAlbumID in [a.local_id for a in albums]:
-            return False
-        albumIndex = [a.local_id for a in albums].index(LEAlbumID)
-        assets = albums[albumIndex].assets
-        assets.reverse()
-        if not 'assetid' in lastEditing:
-            return False
-        LEAssetID = lastEditing['assetid']
-        if not LEAssetID in [a.local_id for a in assets]:
-            return False
-        photoNum = [a.local_id for a in assets].index(LEAssetID)
-        openImage()
-        return True
-        
-def onButtonSelect(_):
-    global assets
-    selectedAlbum = getAlbumWithDialog()
-    with open('lastedited.json', 'r') as f:
-        lastedited = json.load(f)
-        lastedited['albumid'] = selectedAlbum.local_id
-    with open('lastedited.json', 'w+') as f:
-        json.dump(lastedited, f)
-        
-    assets = selectedAlbum.assets
-    if config.isAssetsReverse:
-        assets.reverse()
-    setPhotoNumByPickAssets(assets)
-    openImage()
-
-def onButtonDelete(_):
-    global boxCount
+def setImageLastPos():
     global v
-    if boxCount == 0:
-        return
-    v['Image'].remove_subview(selectedBox)
-    boxCount -= 1
-    if boxCount == 0:
-        return
-    selectBox(boxCount-1)
-    
-    global isEdited
-    isEdited = True
+    global imageLastPos
+    global trueImageLastPos
+    global trueLastScale
+    global lastScale
+    imageLastPos = v['Image'].center
+    trueImageLastPos = v['Image'].center
+    trueLastScale = lastScale
 
-def onSwitchShowAncorGuid(sender):
-    global boxCount
-    if sender.value:
-        if not boxCount == 0:
-            setAncorValue(selectedBox)
-            showAncorGuid()
+def setTouchBeganPos(location):
+    global touchBeganPos
+    global lastTouchLocation
+    touchBeganPos = location
+    lastTouchLocation = location
+
+def moveImage(location, canMove='notthing'):
+    global imageLastPos
+    global touchBeganPos
+    global lastTouchLocation
+    global trueLastTouchLocation
+    
+    mgn = 0.01
+    
+    dpos = [da-a for (a, da) in zip(lastTouchLocation, location)]
+    
+    tDpos = [da-a for (a, da) in zip(trueLastTouchLocation, location)]
+    
+    if canMove == 'horizontal':
+        dx = dpos[0] * (2 ** -(abs(tDpos[1]) * mgn))
+        v['Image'].center += (dx, 0)
+    elif canMove == 'vertical':
+        dy = dpos[1] * (2 ** -(abs(tDpos[0]) * mgn))
+        v['Image'].center += (0, dy)
     else:
-        hideAncorGuid()
+        v['Image'].center += dpos # [a+da for (a, da) in zip(imageLastPos, dpos)]
+    lastTouchLocation = location
+
+### Zoom Functions ###
+
+def setLastZoomScale():
+    global lastSliderValue
+    lastSliderValue = v['slider_zoom'].value
+
+def imageZoom(zoomCenter, scale, isUpdateSlider=False):
+    global v
+    global initialImageScale
+    global lastScale
+    global ancorHitboxSize
+    global imageLastPos
+    ancorHitboxSize = min(Ease.inSine(10,200,v['slider_zoom'].value), 70)
+    v['Image'].height, v['Image'].width = initialImageScale[0] * scale, initialImageScale[1] * scale
+    v['Image'].x -= (scale / lastScale - 1) * (zoomCenter[0] - v['Image'].x)
+    v['Image'].y -= (scale / lastScale - 1) * (zoomCenter[1] - v['Image'].y)
+    imageLastPos = (
+        (imageLastPos[0] - zoomCenter[0]) * (scale / lastScale) + zoomCenter[0],
+        (imageLastPos[1] - zoomCenter[1]) * (scale / lastScale) + zoomCenter[1]
+        )
+    lastScale = scale
+    
+    global boxCount
+    if not boxCount == 0:
+        global selectedBox
+        setAncorValue(selectedBox)
         
-is2PColor = False
+    if isUpdateSlider:
+        v['slider_zoom'].value = Ease.inQuad_inverse(1, 16, scale)
 
-selectedThemeIndex = 0
+def imageZoomBySliderValue(zoomCenter):
+    scale = Ease.inQuad(1, 16, v['slider_zoom'].value)
+    imageZoom(zoomCenter, scale)
 
-def applyThemeColor(index, isSingleContent=False, contentType=None, content=None, isSelectedBox=True):
-    global themeColors
-    global boxCount
-    global selectedBox
-    global selectedThemeIndex
+def zoomWithDoubletouch(touch):
+    global touchBeganPos
+    global lastSliderValue
+    global v
+    coef = 800
+    dy = touch.location[1] - touchBeganPos[1]
+    v['slider_zoom'].value = lastSliderValue + dy / coef
+    imageZoomBySliderValue(touchBeganPos)
+
+def getPinchCenterPos():
+    global activeTouchIDs
+    center = (
+        (dict(activeTouchIDs).values()[0][0] + dict(activeTouchIDs).values()[1][0]) / 2,
+        (dict(activeTouchIDs).values()[0][1] + dict(activeTouchIDs).values()[1][1]) / 2
+    )
+    return center
+
+def getPinchDistance():
+    global activeTouchIDs
+    distance = math.sqrt(
+        (dict(activeTouchIDs).values()[0][0] - dict(activeTouchIDs).values()[1][0]) ** 2 +
+        (dict(activeTouchIDs).values()[0][1] - dict(activeTouchIDs).values()[1][1]) ** 2
+    )
+    return distance
+
+def pinch():
+    global v
+    global pinchBeganDistance
+    global lastSliderValue
+    global trueLastScale
+    center = getPinchCenterPos()
+    pinchDistance = getPinchDistance()
+    zoomRate = (pinchDistance / pinchBeganDistance)
+    imageZoom(center, trueLastScale * zoomRate, isUpdateSlider=True)
+    #if zoomRate < 1:
+    #    v['slider_zoom'].value = lastSliderValue - Ease.inQuad_inverse(1, 16, 1/zoomRate)
+    #else:
+    #    v['slider_zoom'].value = lastSliderValue + Ease.inQuad_inverse(1, 16, zoomRate)
+    moveImage(center)
+    imageZoomBySliderValue(center)
+
+### --------------------------------- ###
+### Progress Label Controle Functions ###
+### --------------------------------- ###
+
+@on_main_thread
+def initProgressLabel():
+    v['progress_label'].background_color = (1.0, 1.0, 1.0, 0.7)
+    v['progress_label'].corner_radius = 16
+    ObjCInstance(v['progress_label']).clipsToBounds = True
+
+def updateProgressLabel():
+    global v
+    global photoNum
+    global assets
+    v['progress_label'].text = '{}/{}'.format(photoNum+1, len(assets))
+
+### ------------------------------------- ###
+### Create Yolo Annotation File Functions ###
+### ------------------------------------- ###
+
+def getPhotoPosAndScale():
+    global photoNum
+    global assets
+    photo = assets[photoNum]
     
-    selectedThemeIndex = index
+    imageViewVerticalRatio = v['Image'].height / v['Image'].width
+    photoVerticalRatio = photo.pixel_height / photo.pixel_width
     
-    # guide
-    if not isSingleContent or contentType == 'guideBox':
-        c = content if isSingleContent else v['guidBox']
-        c.border_color = themeColors[index]['guide']
-    
-    if not isSingleContent: 
-        if boxCount == 0:
-            return
-        for i in range(boxCount):
-            v['Image']['rangeBox' + str(i)].border_color = themeColors[index]['box']
-            v['Image']['rangeBox' + str(i)].background_color = themeColors[index]['boxbg']
-            for view in v['Image']['rangeBox' + str(i)].subviews:
-                if not view.name.startswith('ancorDot'):
-                    continue
-                view.background_color = themeColors[index]['box']
-    
-    # selectedBox
-    if not isSingleContent:
-        if boxCount == 0:
-            return
-        selectedBox.border_color = themeColors[index]['selectedbox']
-        selectedBox.background_color = themeColors[index]['selectedboxbg']
-        for view in selectedBox.subviews:
-            if not view.name.startswith('ancorDot'):
-                continue
-            view.background_color = themeColors[index]['selectedbox']
+    if imageViewVerticalRatio > photoVerticalRatio: # 上下余白の場合
+        mag = v['Image'].width / photo.pixel_width # 倍率
+        return {
+            'x': 0,
+            'y': (v['Image'].height - (photo.pixel_height * mag)) / 2,
+            'width': v['Image'].width,
+            'height': photo.pixel_height * mag
+        }
+    else:                                           # 左右余白の場合
+        mag = v['Image'].height / photo.pixel_height # 倍率
+        return {
+            'y': 0,
+            'x': (v['Image'].width - (photo.pixel_width * mag)) / 2,
+            'height': v['Image'].height,
+            'width': photo.pixel_width * mag
+        }
 
-    if isSingleContent and contentType == 'box':
-        boxColor = 'selectedbox' if isSelectedBox else 'box'
-        boxBGcolor = 'selectedboxbg' if isSelectedBox else 'boxbg'
-        content.border_color = themeColors[index][boxColor]
-        content.background_color = themeColors[index][boxBGcolor]
-        for view in content.subviews:
-            if not view.name.startswith('ancorDot'):
-                continue
-            view.background_color = themeColors[index][boxColor]
-
-def onSwitch2PColor(sender):
-    applyThemeColor(1 if sender.value else 0)
-
-def onSaturationSlider(sender):
-    v['Image']['saturationScreen'].alpha = sender.value
-
-def onBrightnessSlider(sender):
-    val = sender.value
-    v['Image']['brightnessScreen'].alpha = val
-    v.background_color = (1-val, 1-val, 1-val)
-
-def onButtonChangeSelect(_):
-    global selectedBoxIndex
-    global boxCount
-    
-    index = selectedBoxIndex + 1
-    if index == boxCount:
-        index = 0
-    
-    selectBox(index)
-
-vrt_hitbox = ui.Path
-hlz_hitbox = ui.Path
+### ----------------------------- ###
+### Direction Slide Bar Functions ###
+### ----------------------------- ###
 
 def initSlideBarView():
     global v
@@ -952,8 +624,9 @@ def initSlideBarView():
         hlz.height
         )
 
-centerPos = (0,0)
-padding = 6
+### ------------------------------- ###
+### Overlay HSV Controler Functions ###
+### ------------------------------- ###
 
 def initOverlaySystem():
     global v
@@ -986,8 +659,235 @@ def initOverlaySystem():
     bs.width = width
     
     bs.x = (sliderRightX + sliderLeftX) / 2 + padding / 2
+
+### ---------------------- ###
+### Main Rootine Functions ###
+### ---------------------- ###
+
+def loadAnnotationFile():
+    global assets
+    global photoNum
     
     
+    photoAsset = assets[photoNum]
+    
+    photoFileName = str(ObjCInstance(photoAsset).filename())
+    annotationFileName = os.path.splitext(photoFileName)[0] + '.txt'
+    
+    if not os.path.exists('result/' + annotationFileName):
+        return
+    
+    photoInImageView = getPhotoPosAndScale()
+    lines = []
+    with open('result/' + annotationFileName)  as f:
+        lines = f.readlines()
+    
+    for line in lines:
+        args = line.split(' ')
+        box = yoloPos2BoxPos(
+            photoInImageView['x'],
+            photoInImageView['y'],
+            photoInImageView['width'],
+            photoInImageView['height'],
+            float(args[1]),
+            float(args[2]),
+            float(args[3]),
+            float(args[4])
+            )
+        createNewBox(
+            center=(box['x'], box['y']),
+            width=box['width'],
+            height=box['height']
+            )
+
+def openImage():
+    global photoNum
+    global assets
+    global centerPos
+    global v
+    
+    v['slider_zoom'].value = 0
+    imageZoomBySliderValue(centerPos)
+    v['Image'].center = centerPos
+    clearAllBox()
+    v['Image'].image = assets[photoNum].get_ui_image()
+    with open('lastedited.json', 'r') as f:
+        lastedited = json.load(f)
+        lastedited['assetid'] = assets[photoNum].local_id
+    with open('lastedited.json', 'w') as f:
+        json.dump(lastedited, f)
+    updateProgressLabel()
+    
+    loadAnnotationFile()
+    
+    global isEdited
+    isEdited = False
+
+def openNextImage():
+    global photoNum
+    global assets
+    if photoNum == len(assets) - 1:
+        dialogs.alert('最新の写真です。', button1='OK', hide_cancel_button=True)
+    else:
+        photoNum += 1
+    openImage()
+
+def openPrevImagee():
+    global photoNum
+    global assets
+    if photoNum == 0:
+        dialogs.alert('最初の写真です',  button1='OK', hide_cancel_button=True)
+    else:
+        photoNum -= 1
+    openImage()
+
+def setPhotoNumByPickAssets(assets):
+    global photoNum
+    selectedAsset = photos.pick_asset(assets)
+    if not selectedAsset:
+        return
+    photoNum = assets.index(selectedAsset)
+
+def openLastEdetedFile():
+    global assets
+    global photoNum
+    with open('lastedited.json', 'r') as f:
+        lastEditing = json.loads(f.read())
+        if not 'albumid' in lastEditing:
+            return False
+        LEAlbumID = lastEditing['albumid']
+        albums = photos.get_albums()
+        if not LEAlbumID in [a.local_id for a in albums]:
+            return False
+        albumIndex = [a.local_id for a in albums].index(LEAlbumID)
+        assets = albums[albumIndex].assets
+        assets.reverse()
+        if not 'assetid' in lastEditing:
+            return False
+        LEAssetID = lastEditing['assetid']
+        if not LEAssetID in [a.local_id for a in assets]:
+            return False
+        photoNum = [a.local_id for a in assets].index(LEAssetID)
+        openImage()
+        return True
+
+def openPhotoBySelectPhoto(_):
+    global assets
+    selectedAlbum = getAlbumWithDialog()
+    with open('lastedited.json', 'r') as f:
+        lastedited = json.load(f)
+        lastedited['albumid'] = selectedAlbum.local_id
+    with open('lastedited.json', 'w+') as f:
+        json.dump(lastedited, f)
+        
+    assets = selectedAlbum.assets
+    if config.is_assets_reverse:
+        assets.reverse()
+    setPhotoNumByPickAssets(assets)
+    openImage()
+
+### --------------------------------- ###
+### Read and Write and Draw Functions ###
+### --------------------------------- ###
+
+def onSliderZoom(_):
+    global centerPos
+    imageZoomBySliderValue(centerPos)
+
+def onButtonCreate(_):
+    createNewBox()
+    global isEdited
+    isEdited = True
+
+def onButtonDone(_):
+    global boxCount
+    global photoNum
+    global assets
+    
+    global isEdited
+    if not isEdited:
+        openNextImage()
+        return 
+    
+    photoAsset = assets[photoNum]
+    
+    photoInImageView = getPhotoPosAndScale()
+    
+    yoloAnotationText = ''
+    for i in range(boxCount):
+        line = makeYoloAnotationLine(photoInImageView, v['Image']['rangeBox' + str(i)])
+        yoloAnotationText += line + '\n'
+    
+    if not boxCount == 0:
+        photoFileName = str(ObjCInstance(photoAsset).filename())
+        # annotationFileName = pathlib.PurePath(photoFileName).stem + '.txt'
+        annotationFileName = os.path.splitext(photoFileName)[0] + '.txt'
+        if os.path.exists('result/' + annotationFileName):
+            yesOrNo = console.alert('ファイルが存在します。', '上書きしますか？', 'はい', 'いいえ', hide_cancel_button=True)
+            if yesOrNo == 1:
+                with open('result/' + annotationFileName, 'w') as f:
+                    f.write(yoloAnotationText)
+        else:
+            with open('result/' + annotationFileName, 'w') as f:
+                f.write(yoloAnotationText)
+            
+    openNextImage()
+
+def onButtonBack(_):
+    openPrevImagee()
+
+def onButtonSelect(_):
+    openPhotoBySelectPhoto()
+
+def onButtonDelete(_):
+    global boxCount
+    global v
+    if boxCount == 0:
+        return
+    v['Image'].remove_subview(selectedBox)
+    boxCount -= 1
+    if boxCount == 0:
+        return
+    selectBox(boxCount-1)
+    
+    global isEdited
+    isEdited = True
+
+def onSwitchShowAncorGuid(sender):
+    global boxCount
+    if sender.value:
+        if not boxCount == 0:
+            setAncorValue(selectedBox)
+            showAncorGuid()
+    else:
+        hideAncorGuid()
+
+def onSwitch2PColor(sender):
+    applyThemeColor(1 if sender.value else 0)
+
+def onSaturationSlider(sender):
+    v['Image']['saturationScreen'].alpha = sender.value
+
+def onBrightnessSlider(sender):
+    val = sender.value
+    v['Image']['brightnessScreen'].alpha = val
+    v.background_color = (1-val, 1-val, 1-val)
+
+def onButtonChangeSelect(_):
+    global selectedBoxIndex
+    global boxCount
+    
+    index = selectedBoxIndex + 1
+    if index == boxCount:
+        index = 0
+    
+    selectBox(index)
+
+### ---------------------- ###
+### |\   /|   /\   | |\  | ###
+### | \ / |  /  \  | | \ | ###
+### |  V  | /----\ | |  \| ###
+### ---------------------- ###
 
 @on_main_thread
 def awake():
@@ -997,13 +897,6 @@ def awake():
     v['slider_zoom'].continuous = True
     v['Image'].content_mode = ui.CONTENT_SCALE_ASPECT_FIT
     v['Image'].background_color = 'white'
-    # (v['guidBox']).set_blend_mode(ui.BLEND_MULTIPLY)
-    
-    # v['guidBox'].bounds = (0,0,5200,5200)
-    # v['guidBox'].border_width = 2500
-    # v['guidBox'].border_color = 'black'
-
-    
 
 def start():
     global v
@@ -1018,10 +911,10 @@ def start():
     initSlideBarView()
     initOverlaySystem()
     
-    loadClassesDotTxt()
+    # loadClassesDotTxt()
     
     if not openLastEdetedFile():
-        onButtonSelect('_')
+        openPhotoBySelectPhoto()
     
     def a():
         v['curtain'].alpha = 0
@@ -1029,8 +922,7 @@ def start():
         v.remove_subview(v['curtain'])
     ui.animate(a, completion=b)
     
-
-if __name__ == '__main__':
+def main():
     global v
     
     v = ui.load_view()
@@ -1038,3 +930,6 @@ if __name__ == '__main__':
             
     v.present('fullscreen')
     start()
+
+if __name__ == '__main__':
+    main()
