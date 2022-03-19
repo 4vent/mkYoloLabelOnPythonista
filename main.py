@@ -1,28 +1,32 @@
 # -*- coding: utf-8 -*-
-# aaa
+
 import ui
 import photos
 import dialogs
 import console
-import math
-import json
-# import pathlib
-import os
-import time
-import sys
 from objc_util import ObjCInstance, on_main_thread
+
+import os
+import sys
+import json
+import math
+import random
+import time
+import unicodedata
+
+import config
 
 themeColors = (
     {
         'box': (1.0, 0.0, 0.0, 0.0),
-        'boxbg': (1.0, 0.0, 0.0, 0.2),
+        'boxbg': (1.0, 0.0, 0.0, 0.5),
         'selectedbox': (1.0, 0.0, 0.0, 1.0),
         'selectedboxbg': (1.0, 0.0, 0.0, 0.2),
         'guide': (0.0, 1.0, 0.0, 1.0)
     },
     {
         'box': (0.0, 1.0, 1.0, 0.0),
-        'boxbg': (0.0, 1.0, 1.0, 0.2),
+        'boxbg': (0.0, 1.0, 1.0, 0.4),
         'selectedbox': (0.0, 1.0, 1.0, 1.0),
         'selectedboxbg': (0.0, 1.0, 1.0, 0.2),
         'guide': (1.0, 0.0, 1.0, 1.0)
@@ -56,6 +60,17 @@ def compairString(large, small):
                 return True
             else:
                 return False
+
+def getStringWidth(str=''):
+    width = 0
+    half = ['H', 'Na', 'N']
+    for c in str:
+        uc = unicode(c)
+        if unicodedata.east_asian_width(uc) in half:
+            width += 1
+        else:
+            width += 2
+    return width
 
 def yoloPos2BoxPos(
     photoX,
@@ -273,6 +288,9 @@ def setAncorValue(box):
     global boxAncors
     global boxData
     
+    if not box:
+        return 
+    
     boxData = {
         'x': box.x + v['Image'].x,
         'y': box.y + v['Image'].y,
@@ -294,18 +312,28 @@ def selectBox(index):
     global themeColors
     global selectedThemeIndex
     
+    if boxCount == 0:
+        return 
+    
     selectedBoxIndex = index
     
     if selectedBox:
-        selectedBox.background_color = themeColors[selectedThemeIndex]['boxbg']
-        selectedBox.border_color = themeColors[selectedThemeIndex]['box']
-        for view in selectedBox.subviews:
-            view.background_color = themeColors[selectedThemeIndex]['box']
+        applyThemeColor(
+            selectedThemeIndex,
+            isSingleContent = True,
+            contentType = 'box',
+            content = selectedBox,
+            isSelectedBox = False
+            )
     selectedBox = v['Image']['rangeBox' + str(index)]
-    selectedBox.background_color = themeColors[selectedThemeIndex]['selectedboxbg']
-    selectedBox.border_color = themeColors[selectedThemeIndex]['selectedbox']
-    for viwe in selectedBox.subviews:
-        viwe.background_color = themeColors[selectedThemeIndex]['selectedbox']
+    applyThemeColor(
+        selectedThemeIndex,
+        isSingleContent = True,
+        contentType = 'box',
+        content = selectedBox,
+        isSelectedBox = True
+        )
+    
     setAncorValue(selectedBox)
 
 selectedAncor = 'tl'
@@ -364,7 +392,7 @@ def moveAncor(touch):
         selectedBox.y = boxData['absy'] + dpos[1]
         selectedBox.x = boxData['absx'] + dpos[0]
 
-def createNewBox(center=None, width=None, height=None):
+def createNewBox(labelTitle='default', center=None, width=None, height=None):
     global boxCount
     global v
     global centerPos
@@ -373,9 +401,6 @@ def createNewBox(center=None, width=None, height=None):
     
     box = ui.View(flex = '')
     box.border_width = 2
-    boxColor = themeColors[selectedThemeIndex]['selectedbox']
-    boxBGColor = themeColors[selectedThemeIndex]['selectedboxbg']
-    box.border_color = boxColor
     ancorDotSize = 5
     ancorDots = [
         ui.View(frame=(0,0,ancorDotSize,ancorDotSize), flex='RB', name='ancorDot0'),
@@ -388,12 +413,32 @@ def createNewBox(center=None, width=None, height=None):
         ui.View(frame=(100-ancorDotSize,100-ancorDotSize,ancorDotSize,ancorDotSize), flex='LT', name='ancorDot7'),
         ui.View(frame=(50-ancorDotSize/2,50-ancorDotSize/2,ancorDotSize,ancorDotSize), flex='LRTB', name='ancorDot8'),
         ]
+    
     for d in ancorDots:
-        d.background_color = boxColor
         box.add_subview(d)
-    box.background_color = boxBGColor
     box.flex = 'WHLRTB'
     box.name = 'rangeBox' + str(boxCount)
+    
+    # global labelColors
+    label = ui.Label(name='label', flex='RB')
+    label.text = labelTitle
+    label.background_color = (0,0,0)
+    label.text_color = (1,1,1)
+    label.alignment = ui.ALIGN_CENTER
+    label.x, label.y = 0, 0
+    label.height = 18
+    width = getStringWidth(labelTitle)
+    label.width = width * 9
+    
+    applyThemeColor(
+        selectedThemeIndex,
+        isSingleContent = True,
+        contentType = 'box',
+        content = box,
+        isSelectedBox = True
+        )
+    box.add_subview(label)
+    
     if center and width and height:
         box.width = width
         box.height = height
@@ -409,6 +454,8 @@ def createNewBox(center=None, width=None, height=None):
 
 def onButtonCreate(_):
     createNewBox()
+    global isEdited
+    isEdited = True
 
 def clearAllBox():
     global v
@@ -467,6 +514,7 @@ def loadAnnotationFile():
     
 
 photoNum = 0
+isEdited = False
 
 def openImage():
     global photoNum
@@ -487,6 +535,9 @@ def openImage():
     updateProgressLabel()
     
     loadAnnotationFile()
+    
+    global isEdited
+    isEdited = False
     
 def openNextImage():
     global photoNum
@@ -545,6 +596,11 @@ def onButtonDone(_):
     global boxCount
     global photoNum
     global assets
+    
+    global isEdited
+    if not isEdited:
+        openNextImage()
+        return 
     
     photoAsset = assets[photoNum]
     
@@ -652,6 +708,8 @@ class touchView(ui.View):
         lastTouchTimestamp = touch.timestamp
         if getNearestAncor(touch):
             isAncorEditing = True
+            global isEdited
+            isEdited = True
         else:
             setImageLastPos()
         
@@ -713,17 +771,20 @@ class touchView(ui.View):
         isAncorEditing = False
         doubleTouchFlag = False
         selectedAncor = None
-        updateAncorGuid()
         showAncorGuid()
         
         global hittingSlideBarView
         global slideBarView
         hittingSlideBarView = slideBarView.notthing
+        
+        setAncorValue(selectedBox)
 
 
 def setPhotoNumByPickAssets(assets):
     global photoNum
     selectedAsset = photos.pick_asset(assets)
+    if not selectedAsset:
+        return
     photoNum = assets.index(selectedAsset)
 
 def openLastEdetedFile():
@@ -757,8 +818,10 @@ def onButtonSelect(_):
         lastedited['albumid'] = selectedAlbum.local_id
     with open('lastedited.json', 'w+') as f:
         json.dump(lastedited, f)
+        
     assets = selectedAlbum.assets
-    assets.reverse()
+    if config.isAssetsReverse:
+        assets.reverse()
     setPhotoNumByPickAssets(assets)
     openImage()
 
@@ -771,7 +834,10 @@ def onButtonDelete(_):
     boxCount -= 1
     if boxCount == 0:
         return
-    selectBox()
+    selectBox(boxCount-1)
+    
+    global isEdited
+    isEdited = True
 
 def onSwitchShowAncorGuid(sender):
     global boxCount
@@ -786,7 +852,7 @@ is2PColor = False
 
 selectedThemeIndex = 0
 
-def applyThemeColor(index):
+def applyThemeColor(index, isSingleContent=False, contentType=None, content=None, isSelectedBox=True):
     global themeColors
     global boxCount
     global selectedBox
@@ -795,20 +861,41 @@ def applyThemeColor(index):
     selectedThemeIndex = index
     
     # guide
-    v['guidBox'].border_color = themeColors[index]['guide']
+    if not isSingleContent or contentType == 'guideBox':
+        c = content if isSingleContent else v['guidBox']
+        c.border_color = themeColors[index]['guide']
     
-    # box
-    for i in range(boxCount):
-        v['Image']['rangeBox' + str(i)].border_color = themeColors[index]['box']
-        v['Image']['rangeBox' + str(i)].background_color = themeColors[index]['boxbg']
-        for view in v['Image']['rangeBox' + str(i)].subviews:
-            view.background_color = themeColors[index]['box']
+    if not isSingleContent: 
+        if boxCount == 0:
+            return
+        for i in range(boxCount):
+            v['Image']['rangeBox' + str(i)].border_color = themeColors[index]['box']
+            v['Image']['rangeBox' + str(i)].background_color = themeColors[index]['boxbg']
+            for view in v['Image']['rangeBox' + str(i)].subviews:
+                if not view.name.startswith('ancorDot'):
+                    continue
+                view.background_color = themeColors[index]['box']
     
     # selectedBox
-    selectedBox.border_color = themeColors[index]['selectedbox']
-    selectedBox.background_color = themeColors[index]['selectedboxbg']
-    for view in selectedBox.subviews:
-        view.background_color = themeColors[index]['selectedbox']
+    if not isSingleContent:
+        if boxCount == 0:
+            return
+        selectedBox.border_color = themeColors[index]['selectedbox']
+        selectedBox.background_color = themeColors[index]['selectedboxbg']
+        for view in selectedBox.subviews:
+            if not view.name.startswith('ancorDot'):
+                continue
+            view.background_color = themeColors[index]['selectedbox']
+
+    if isSingleContent and contentType == 'box':
+        boxColor = 'selectedbox' if isSelectedBox else 'box'
+        boxBGcolor = 'selectedboxbg' if isSelectedBox else 'boxbg'
+        content.border_color = themeColors[index][boxColor]
+        content.background_color = themeColors[index][boxBGcolor]
+        for view in content.subviews:
+            if not view.name.startswith('ancorDot'):
+                continue
+            view.background_color = themeColors[index][boxColor]
 
 def onSwitch2PColor(sender):
     applyThemeColor(1 if sender.value else 0)
@@ -817,7 +904,9 @@ def onSaturationSlider(sender):
     v['Image']['saturationScreen'].alpha = sender.value
 
 def onBrightnessSlider(sender):
-    v['Image']['brightnessScreen'].alpha = sender.value
+    val = sender.value
+    v['Image']['brightnessScreen'].alpha = val
+    v.background_color = (1-val, 1-val, 1-val)
 
 def onButtonChangeSelect(_):
     global selectedBoxIndex
@@ -907,11 +996,14 @@ def awake():
     v['touch_panel'].multitouch_enabled = True
     v['slider_zoom'].continuous = True
     v['Image'].content_mode = ui.CONTENT_SCALE_ASPECT_FIT
+    v['Image'].background_color = 'white'
     # (v['guidBox']).set_blend_mode(ui.BLEND_MULTIPLY)
     
     # v['guidBox'].bounds = (0,0,5200,5200)
     # v['guidBox'].border_width = 2500
     # v['guidBox'].border_color = 'black'
+
+    
 
 def start():
     global v
@@ -925,6 +1017,8 @@ def start():
     
     initSlideBarView()
     initOverlaySystem()
+    
+    loadClassesDotTxt()
     
     if not openLastEdetedFile():
         onButtonSelect('_')

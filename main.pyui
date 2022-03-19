@@ -174,7 +174,7 @@
         "nodes" : [
 
         ],
-        "frame" : "{{520, 476}, {51, 31}}",
+        "frame" : "{{520, 474}, {51, 31}}",
         "class" : "Switch",
         "attributes" : {
           "action" : "onSwitchShowAncorGuid",
@@ -230,7 +230,7 @@
         "nodes" : [
 
         ],
-        "frame" : "{{94, 475}, {80, 32}}",
+        "frame" : "{{94, 475}, {61, 32}}",
         "class" : "Button",
         "attributes" : {
           "uuid" : "0C1E11F6-A8CD-4770-86F1-AAFA7CA13817",
@@ -367,12 +367,12 @@
             "selected" : false
           }
         ],
-        "frame" : "{{0, 0}, {512, 512}}",
+        "frame" : "{{434, 421}, {512, 512}}",
         "class" : "View",
         "attributes" : {
           "flex" : "WH",
           "frame" : "{{206, 206}, {100, 100}}",
-          "background_color" : "RGBA(-0.030303,1.000000,-0.030303,1.000000)",
+          "background_color" : "RGBA(0.433593,0.805243,0.433593,1.000000)",
           "class" : "View",
           "name" : "curtain",
           "uuid" : "622B69F6-B26D-4582-819C-480C8949B821"
@@ -383,11 +383,11 @@
     "frame" : "{{0, 0}, {512, 512}}",
     "class" : "View",
     "attributes" : {
-      "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
-      "enabled" : true,
-      "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
-      "name" : "",
       "tint_color" : "RGBA(0.000000,0.478000,1.000000,1.000000)",
+      "enabled" : true,
+      "border_color" : "RGBA(0.000000,0.000000,0.000000,1.000000)",
+      "name" : "",
+      "background_color" : "RGBA(1.000000,1.000000,1.000000,1.000000)",
       "flex" : ""
     },
     "selected" : false
