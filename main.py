@@ -24,6 +24,7 @@ from get_string_width import getStringWidth
 from yolo_annotation_tools import yoloPos2BoxPos, boxPos2YoloPos, makeYoloAnotationLine
 from pythonista_photos_tools import getSortedAlbums, getAlbumWithDialog
 from random_color_generator import getRandomColor
+from pythonista_ui_tools import createOneColorImage
 
 themeColors = config.theme_colors
 ancorGuideNames = config.ancore_guid_names
@@ -78,8 +79,8 @@ trueLastTouchLocation = (0,0)
 ### ------- ###
 
 class labelClass():
-    def __init__(self, title, color) -> None:
-        self.title = title,
+    def __init__(self, title, color):
+        self.title = title
         self.color = color
 
 ### ---------------------------------------- ###
@@ -285,7 +286,7 @@ def createNewBox(labelNum=None, center=None, width=None, height=None):
         label.background_color = (0,0,0)
     else:  
         label.text = classes[labelNum].title
-        label.background_color = classes[labelNum].color
+        label.background_color = classes[labelNum].color.tuple
     label.text_color = (1,1,1)
     label.alignment = ui.ALIGN_CENTER
     label.x, label.y = 0, 0
@@ -311,7 +312,7 @@ def createNewBox(labelNum=None, center=None, width=None, height=None):
         imageViewCenterGap = [a-b for (a, b) in zip(v['Image'].center, centerPos)]
         centerPosInImageView = (v['Image'].width / 2, v['Image'].height / 2)
         box.center = [a-b for (a, b) in zip(centerPosInImageView, imageViewCenterGap)]
-    print('add_subview(height={}, width={})'.format(box.height, box.width))
+    # print('add_subview(height={}, width={})'.format(box.height, box.width))
     v['Image'].add_subview(box)
     boxCount += 1
     selectBox(boxCount - 1)
@@ -690,7 +691,9 @@ def loadClassesFile():
     with open('result/classes.txt', 'r') as f:
         classTitles = f.read().split()
     for c in classTitles:
-        classes.append(labelClass(c, getRandomColor(vMax=0.5)))
+        color = getRandomColor(vMin=0.3, vMax=0.7, sMin=0.3)
+        # print(rgb)
+        classes.append(labelClass(c, color))
 
 def saveClassesFile():
     global classes
@@ -851,8 +854,12 @@ def onButtonDone(_):
     photoInImageView = getPhotoPosAndScale()
     
     yoloAnotationText = ''
+    classTitles = [c.title for c in classes]
     for i in range(boxCount):
-        line = makeYoloAnotationLine(photoInImageView, v['Image']['rangeBox' + str(i)])
+        boxView = v['Image']['rangeBox' + str(i)]
+        labelIndex = classTitles.index(boxView['label'].text)
+        line = makeYoloAnotationLine(labelIndex, photoInImageView, boxView)
+        
         yoloAnotationText += line + '\n'
     
     if not boxCount == 0:
@@ -920,6 +927,31 @@ def onButtonChangeSelect(_):
     
     selectBox(index)
 
+def onButtonChooseLabel(_):
+    global classes
+    items = []
+    for c in classes:
+        r, g, b = c.color.r, c.color.g, c.color.b
+        items.append({
+            'title': c.title,
+            'image': createOneColorImage(x=200, y=200, r=r, g=g, b=b)
+        })
+    selectedLabel = dialogs.list_dialog(items=items)
+    if selectedLabel == None:
+        return
+    index = [c.title for c in classes].index(selectedLabel['title'])
+    
+    global selectedBox
+    selectedBox['label'].text = classes[index].title
+    selectedBox['label'].background_color = (classes[index].color.tuple)
+    
+    global selectedLabelIndex
+    selectedLabelIndex = index
+    
+    global isEdited
+    isEdited = True
+    
+
 ### ---------------------- ###
 ### |\   /|   /\   | |\  | ###
 ### | \ / |  /  \  | | \ | ###
@@ -934,6 +966,7 @@ def awake():
     v['slider_zoom'].continuous = True
     v['Image'].content_mode = ui.CONTENT_SCALE_ASPECT_FIT
     v['Image'].background_color = 'white'
+    v['curtain'].center = v['Image'].center
 
 def start():
     global v

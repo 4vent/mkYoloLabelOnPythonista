@@ -8,6 +8,7 @@ class rgb():
         self.r = r
         self.g = g
         self.b = b
+        self.tuple = (r, g, b)
 
 def getRandomColor(hMin=0, hMax=360, sMin=0, sMax=1, vMin=0, vMax=1):
     h = random.uniform(hMin, hMax)

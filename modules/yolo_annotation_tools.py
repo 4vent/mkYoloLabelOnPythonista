@@ -34,7 +34,7 @@ def boxPos2YoloPos(
         'height': boxHeight / float(photoHeight)
     }
 
-def makeYoloAnotationLine(photo, boxView):
+def makeYoloAnotationLine(labelIndex, photo, boxView):
     yoloLine = boxPos2YoloPos(
         photo['x'],
         photo['y'],
@@ -45,4 +45,4 @@ def makeYoloAnotationLine(photo, boxView):
         boxView.width,
         boxView.height
         )
-    return '{} {:.6f} {:.6f} {:.6f} {:.6f}'.format(0, yoloLine["x"], yoloLine["y"], yoloLine["width"], yoloLine["height"])
+    return '{} {:.6f} {:.6f} {:.6f} {:.6f}'.format(labelIndex, yoloLine["x"], yoloLine["y"], yoloLine["width"], yoloLine["height"])
