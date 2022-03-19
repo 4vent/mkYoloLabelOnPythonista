@@ -238,6 +238,7 @@ def hideAncorGuid():
 ### --------------------------- ###
 
 def createNewBox(labelTitle='default', center=None, width=None, height=None):
+    # print('create new box(title = {}, center = {}, width = {}, height = {})'.format(labelTitle, center, width, height))
     global boxCount
     global v
     global centerPos
@@ -272,8 +273,8 @@ def createNewBox(labelTitle='default', center=None, width=None, height=None):
     label.alignment = ui.ALIGN_CENTER
     label.x, label.y = 0, 0
     label.height = 18
-    width = getStringWidth(labelTitle)
-    label.width = width * 9
+    stringWidth = getStringWidth(labelTitle)
+    label.width = stringWidth * 9
     
     applyThemeColor(
         selectedThemeIndex,
@@ -293,6 +294,7 @@ def createNewBox(labelTitle='default', center=None, width=None, height=None):
         imageViewCenterGap = [a-b for (a, b) in zip(v['Image'].center, centerPos)]
         centerPosInImageView = (v['Image'].width / 2, v['Image'].height / 2)
         box.center = [a-b for (a, b) in zip(centerPosInImageView, imageViewCenterGap)]
+    print('add_subview(height={}, width={})'.format(box.height, box.width))
     v['Image'].add_subview(box)
     boxCount += 1
     selectBox(boxCount - 1)
