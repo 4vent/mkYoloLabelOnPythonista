@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import photos, dialogs
 from compair_strings import compairString
 

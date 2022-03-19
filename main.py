@@ -14,13 +14,15 @@ import random
 import time
 import unicodedata
 
+sys.path.append('modules')
+
 import config
 from config import slideBarView
-from modules.ease import Ease
-from modules.compair_strings import compairString
-from modules.get_string_width import getStringWidth
-from modules.yolo_annotation_tools import yoloPos2BoxPos, boxPos2YoloPos, makeYoloAnotationLine
-from modules.pythonista_photos_tools import getSortedAlbums, getAlbumWithDialog
+from ease import Ease
+from compair_strings import compairString
+from get_string_width import getStringWidth
+from yolo_annotation_tools import yoloPos2BoxPos, boxPos2YoloPos, makeYoloAnotationLine
+from pythonista_photos_tools import getSortedAlbums, getAlbumWithDialog
 
 themeColors = config.theme_colors
 ancorGuideNames = config.ancore_guid_names

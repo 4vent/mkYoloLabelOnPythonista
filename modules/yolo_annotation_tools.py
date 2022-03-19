@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 def yoloPos2BoxPos(
     photoX,
     photoY,

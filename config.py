@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 is_assets_reverse = False
 
 theme_colors = (
