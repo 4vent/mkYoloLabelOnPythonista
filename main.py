@@ -948,8 +948,7 @@ def start():
     initSlideBarView()
     initOverlaySystem()
     
-    # loadClassesDotTxt()
-    
+    loadClassesFile()
     if not openLastEdetedFile():
         openPhotoBySelectPhoto()
     
