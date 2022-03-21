@@ -45,4 +45,26 @@ def makeYoloAnotationLine(labelIndex, photo, boxView):
         boxView.width,
         boxView.height
         )
+
+    begenX = yoloLine['x'] - yoloLine['width'] / 2
+    if begenX < 0:
+        yoloLine['width'] += begenX
+        yoloLine['x'] += -begenX / 2
+    
+    begenY = yoloLine['y'] - yoloLine['height'] / 2
+    if begenY < 0:
+        yoloLine['height'] += begenY
+        yoloLine['y'] += -begenY / 2
+    
+    finishX = yoloLine['x'] + yoloLine['width'] / 2
+    if finishX > 1:
+        yoloLine['width'] -= finishX - 1
+        yoloLine['x'] -= (finishX - 1) / 2
+    
+    finishY = yoloLine['y'] + yoloLine['height'] / 2
+    if finishY > 1:
+        yoloLine['height'] -= finishY - 1
+        yoloLine['y'] -= (finishY - 1) / 2
+        
+    
     return '{} {:.6f} {:.6f} {:.6f} {:.6f}'.format(labelIndex, yoloLine["x"], yoloLine["y"], yoloLine["width"], yoloLine["height"])
