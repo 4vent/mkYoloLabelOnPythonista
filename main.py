@@ -5,7 +5,6 @@ import photos
 import dialogs
 import console
 from objc_util import ObjCInstance, on_main_thread
-
 import os
 import sys
 import json
@@ -33,11 +32,14 @@ ancorGuideNames = config.ancore_guid_names
 ### Global Values ###
 ### ------------- ###
 
+v = ui.View()
+
 is2PColor = False
 selectedThemeIndex = 0
 
 selectedAncor = 'tl'
 ancorHitboxSize = 5
+imgOffset = {}
 
 boxCount = 0
 boxData = {}
@@ -55,6 +57,7 @@ trueLastScale = 1.0
 initialImageScale = (0, 0)
 lastSliderValue = 0
 pinchBeganDistance = 0.0
+zoom_mode = True
 
 vrt_hitbox = ui.Path
 hlz_hitbox = ui.Path
@@ -62,6 +65,8 @@ hlz_hitbox = ui.Path
 centerPos = (0,0)
 padding = 6
 
+
+assets = []
 photoNum = 0
 isEdited = False
 classes = []
@@ -74,14 +79,18 @@ multiTouchFlag = False
 hittingSlideBarView = slideBarView.notthing
 trueLastTouchLocation = (0,0)
 
+menu_state = False
+nowThemeNum = 0
+
 ### ------- ###
 ### classes ###
 ### ------- ###
 
 class labelClass():
-    def __init__(self, title, color):
+    def __init__(self, title, bgcolor, textcolor):
         self.title = title
-        self.color = color
+        self.bgcolor = bgcolor
+        self.textcolor = textcolor
 
 ### ---------------------------------------- ###
 ### Standalone Tools (but use global values) ###
@@ -105,17 +114,19 @@ def applyThemeColor(index, isSingleContent=False, contentType=None, content=None
             return
         for i in range(boxCount):
             v['Image']['rangeBox' + str(i)].border_color = themeColors[index]['box']
+            v['Image']['rangeBox' + str(i)].border_width = config.deselected_border_width
             v['Image']['rangeBox' + str(i)].background_color = themeColors[index]['boxbg']
             for view in v['Image']['rangeBox' + str(i)].subviews:
                 if not view.name.startswith('ancorDot'):
                     continue
-                view.background_color = themeColors[index]['box']
+                view.background_color = (0,0,0,0)
     
     # selectedBox
     if not isSingleContent:
         if boxCount == 0:
             return
         selectedBox.border_color = themeColors[index]['selectedbox']
+        selectedBox.border_width = config.selected_border_width
         selectedBox.background_color = themeColors[index]['selectedboxbg']
         for view in selectedBox.subviews:
             if not view.name.startswith('ancorDot'):
@@ -127,10 +138,11 @@ def applyThemeColor(index, isSingleContent=False, contentType=None, content=None
         boxBGcolor = 'selectedboxbg' if isSelectedBox else 'boxbg'
         content.border_color = themeColors[index][boxColor]
         content.background_color = themeColors[index][boxBGcolor]
+        content.border_width = config.selected_border_width if isSelectedBox else config.deselected_border_width
         for view in content.subviews:
             if not view.name.startswith('ancorDot'):
                 continue
-            view.background_color = themeColors[index][boxColor]
+            view.background_color = themeColors[index][boxColor] if isSelectedBox else (0,0,0,0)
 
 ### ------------------------- ###
 ### Controle Ancore Functions ###
@@ -147,16 +159,19 @@ def createAncorGuide():
 
 def getAncorsPos():
     global boxData
+    global v
+    global imgOffset
+    offsetY = imgOffset['y']
     return (
-        (boxData['x']                   , boxData['y']                   ), # tl
-        (boxData['x'] + boxData['w'] / 2, boxData['y']                   ), # tm
-        (boxData['x'] + boxData['w']    , boxData['y']                   ), # tr
-        (boxData['x']                   , boxData['y'] + boxData['h'] / 2), # ml
-        (boxData['x'] + boxData['w']    , boxData['y'] + boxData['h'] / 2), # mr
-        (boxData['x']                   , boxData['y'] + boxData['h']    ), # bl
-        (boxData['x'] + boxData['w'] / 2, boxData['y'] + boxData['h']    ), # bm
-        (boxData['x'] + boxData['w']    , boxData['y'] + boxData['h']    ), # br
-        (boxData['x'] + boxData['w'] / 2, boxData['y'] + boxData['h'] / 2), # center
+        (boxData['x']                   , offsetY + boxData['y']                   ), # tl
+        (boxData['x'] + boxData['w'] / 2, offsetY + boxData['y']                   ), # tm
+        (boxData['x'] + boxData['w']    , offsetY + boxData['y']                   ), # tr
+        (boxData['x']                   , offsetY + boxData['y'] + boxData['h'] / 2), # ml
+        (boxData['x'] + boxData['w']    , offsetY + boxData['y'] + boxData['h'] / 2), # mr
+        (boxData['x']                   , offsetY + boxData['y'] + boxData['h']    ), # bl
+        (boxData['x'] + boxData['w'] / 2, offsetY + boxData['y'] + boxData['h']    ), # bm
+        (boxData['x'] + boxData['w']    , offsetY + boxData['y'] + boxData['h']    ), # br
+        (boxData['x'] + boxData['w'] / 2, offsetY + boxData['y'] + boxData['h'] / 2), # center
         )
 
 def updateAncorGuid():
@@ -283,16 +298,18 @@ def createNewBox(labelNum=None, center=None, width=None, height=None):
     label = ui.Label(name='label', flex='RB')
     if labelNum == None or labelNum >= len(classes):
         label.text = 'Error'
-        label.background_color = (0,0,0)
+        label.background_color = (0,0,0,0.4)
+        label.text_color = (1,1,1)
     else:  
         label.text = classes[labelNum].title
-        label.background_color = classes[labelNum].color.tuple
-    label.text_color = (1,1,1)
+        label.background_color = classes[labelNum].bgcolor.tuple
+        label.text_color = classes[labelNum].textcolor
     label.alignment = ui.ALIGN_CENTER
     label.x, label.y = 0, 0
     label.height = 18
     stringWidth = getStringWidth(label.text)
     label.width = stringWidth * 9
+    label.scales_font = True
     
     applyThemeColor(
         selectedThemeIndex,
@@ -374,7 +391,7 @@ class touchView(ui.View):
         global trueLastTouchLocation
         trueLastTouchLocation = touch.location
         
-        if lastTouchTimestamp + 0.2 > touch.timestamp:
+        if lastTouchTimestamp + 0.25 > touch.timestamp:
             doubleTouchFlag = True
             setLastZoomScale()
         lastTouchTimestamp = touch.timestamp
@@ -475,20 +492,20 @@ def moveImage(location, canMove='notthing'):
     global lastTouchLocation
     global trueLastTouchLocation
     
-    mgn = 0.01
+    mgn = 200
     
     dpos = [da-a for (a, da) in zip(lastTouchLocation, location)]
     
     tDpos = [da-a for (a, da) in zip(trueLastTouchLocation, location)]
     
     if canMove == 'horizontal':
-        dx = dpos[0] * (2 ** -(abs(tDpos[1]) * mgn))
+        dx = dpos[0] * Ease.inSine(1.0/2, 1.0/16, abs(tDpos[1])/mgn)
         v['Image'].center += (dx, 0)
     elif canMove == 'vertical':
-        dy = dpos[1] * (2 ** -(abs(tDpos[0]) * mgn))
+        dy = dpos[1] * Ease.inSine(1.0/2, 1.0/16, abs(tDpos[0])/mgn)
         v['Image'].center += (0, dy)
     else:
-        v['Image'].center += dpos # [a+da for (a, da) in zip(imageLastPos, dpos)]
+        v['Image'].center += dpos
     lastTouchLocation = location
 
 ### Zoom Functions ###
@@ -528,11 +545,16 @@ def imageZoomBySliderValue(zoomCenter):
 def zoomWithDoubletouch(touch):
     global touchBeganPos
     global lastSliderValue
+    global zoom_mode
     global v
+    global centerPos
     coef = 800
     dy = touch.location[1] - touchBeganPos[1]
     v['slider_zoom'].value = lastSliderValue + dy / coef
-    imageZoomBySliderValue(touchBeganPos)
+    if zoom_mode:
+        imageZoomBySliderValue(touchBeganPos)
+    else:
+        imageZoomBySliderValue(centerPos)
 
 def getPinchCenterPos():
     global activeTouchIDs
@@ -682,18 +704,107 @@ def initOverlaySystem():
     
     bs.x = (sliderRightX + sliderLeftX) / 2 + padding / 2
 
+### ----------------- ###
+### UI Style Function ###
+### ----------------- ###
+
+def initUIItems():
+    global v
+    v['button_done'].alignment = ui.ALIGN_RIGHT
+
+### ------------- ###
+### menu function ###
+### ------------- ###
+
+def initMenuView():
+    global v
+    menu = ui.load_view('menu.pyui')
+    menu.width = v['menu_view'].width
+    menu.height = v['menu_view'].height
+    menu.flex = 'WH'
+    menu.name = 'menu'
+    menu.background_color = (1,1,1,0.8)
+    v['menu_view'].add_subview(menu)
+    
+def openMenue():
+    global v
+    
+    bgView = ui.Button(name='menuBG')
+    bgView.background_color = (0,0,0,1)
+    bgView.bounds = v['touch_panel'].bounds
+    bgView.x, bgView.y = 0, 0
+    bgView.alpha = 0
+    bgView.action = onButtonMenu
+    
+    def animation():
+        v['menu_view'].x -= v['menu_view'].width
+        v['menuBG'].alpha = 0.7
+    
+    v.add_subview(bgView)
+    v['menu_view'].bring_to_front()
+    v['button_menu'].bring_to_front()
+    ui.animate(animation, 0.25)
+    
+    
+    
+def closeMenue():
+    global v
+    
+    def animation():
+        v['menu_view'].x += v['menu_view'].width
+        v['menuBG'].alpha = 0
+        
+    def completion():
+        v.remove_subview(v['menuBG'])
+    
+    ui.animate(animation, 0.25, completion=completion)
+    
+    
 ### --------------------------------- ###
 ### Read and Write and Draw Functions ###
 ### --------------------------------- ###
 
 def loadClassesFile():
     global classes
+    classes = []
     with open('result/classes.txt', 'r') as f:
         classTitles = f.read().split()
+    
+    colorOffset = random.uniform(0, 360)
     for c in classTitles:
-        color = getRandomColor(vMin=0.3, vMax=0.7, sMin=0.3)
+        color = getRandomColor(hMin=colorOffset, hMax=colorOffset+40, sMin=0.6, vMin=0.5, vMax=0.7, alpha=0.8)
         # print(rgb)
-        classes.append(labelClass(c, color))
+        light = 0.9
+        textcolor = (
+            color.r + (1-color.r) * light,
+            color.g + (1-color.g) * light,
+            color.b + (1-color.b) * light,
+            )
+        classes.append(labelClass(c, color, textcolor))
+        colorOffset += 80
+        if not colorOffset < 360:
+            colorOffset -= 360
+
+
+def reloadClasses():
+    global v
+    global classes
+    
+    prevClasses = [c.title for c in classes]
+    
+    loadClassesFile()
+    
+    boxes = v['Image'].subviews
+    avoidViewNames = ['saturationScreen', 'brightnessScreen']
+    for box in boxes:
+        if box.name in avoidViewNames:
+            continue
+        classIndex = prevClasses.index(box['label'].text)
+        title = classes[classIndex].title
+        box['label'].text = title
+        print(classes[classIndex].title)
+        box['label'].background_color = classes[classIndex].bgcolor.tuple
+        box['label'].width = getStringWidth(title) * 9
 
 def saveClassesFile():
     global classes
@@ -739,6 +850,42 @@ def loadAnnotationFile():
             height=box['height']
             )
 
+def saveAnnotation(isNotice = False):
+    global boxCount
+    global photoNum
+    global assets
+    
+    global isEdited
+    if not isEdited:
+        return 
+    
+    if boxCount == 0:
+        return
+    
+    photoAsset = assets[photoNum]
+    photoFileName = str(ObjCInstance(photoAsset).filename())
+    
+    annotationFileName = os.path.splitext(photoFileName)[0] + '.txt'
+    
+    if os.path.exists('result/' + annotationFileName):
+        yesOrNo = console.alert('ファイルが存在します。', '上書きしますか？', 'はい', 'いいえ', hide_cancel_button=True)
+        if yesOrNo == 2:
+            return
+            
+    photoInImageView = getPhotoPosAndScale()
+    
+    yoloAnotationText = ''
+    classTitles = [c.title for c in classes]
+    for i in range(boxCount):
+        boxView = v['Image']['rangeBox' + str(i)]
+        labelIndex = classTitles.index(boxView['label'].text)
+        line = makeYoloAnotationLine(labelIndex, photoInImageView, boxView)
+        
+        yoloAnotationText += line + '\n'
+    
+    with open('result/' + annotationFileName, 'w') as f:
+        f.write(yoloAnotationText)
+
 def openImage():
     global photoNum
     global assets
@@ -761,6 +908,9 @@ def openImage():
     
     global isEdited
     isEdited = False
+    
+    global selectedLabelIndex
+    selectedLabelIndex = 0
 
 def openNextImage():
     global photoNum
@@ -800,7 +950,8 @@ def openLastEdetedFile():
             return False
         albumIndex = [a.local_id for a in albums].index(LEAlbumID)
         assets = albums[albumIndex].assets
-        assets.reverse()
+        if config.is_assets_reverse:
+            assets.reverse()
         if not 'assetid' in lastEditing:
             return False
         LEAssetID = lastEditing['assetid']
@@ -810,7 +961,7 @@ def openLastEdetedFile():
         openImage()
         return True
 
-def openPhotoBySelectPhoto(_):
+def openPhotoBySelectPhoto():
     global assets
     selectedAlbum = getAlbumWithDialog()
     with open('lastedited.json', 'r') as f:
@@ -840,47 +991,15 @@ def onButtonCreate(_):
     isEdited = True
 
 def onButtonDone(_):
-    global boxCount
-    global photoNum
-    global assets
-    
-    global isEdited
-    if not isEdited:
-        openNextImage()
-        return 
-    
-    photoAsset = assets[photoNum]
-    
-    photoInImageView = getPhotoPosAndScale()
-    
-    yoloAnotationText = ''
-    classTitles = [c.title for c in classes]
-    for i in range(boxCount):
-        boxView = v['Image']['rangeBox' + str(i)]
-        labelIndex = classTitles.index(boxView['label'].text)
-        line = makeYoloAnotationLine(labelIndex, photoInImageView, boxView)
-        
-        yoloAnotationText += line + '\n'
-    
-    if not boxCount == 0:
-        photoFileName = str(ObjCInstance(photoAsset).filename())
-        # annotationFileName = pathlib.PurePath(photoFileName).stem + '.txt'
-        annotationFileName = os.path.splitext(photoFileName)[0] + '.txt'
-        if os.path.exists('result/' + annotationFileName):
-            yesOrNo = console.alert('ファイルが存在します。', '上書きしますか？', 'はい', 'いいえ', hide_cancel_button=True)
-            if yesOrNo == 1:
-                with open('result/' + annotationFileName, 'w') as f:
-                    f.write(yoloAnotationText)
-        else:
-            with open('result/' + annotationFileName, 'w') as f:
-                f.write(yoloAnotationText)
-            
+    saveAnnotation()
     openNextImage()
 
 def onButtonBack(_):
+    saveAnnotation()
     openPrevImagee()
 
 def onButtonSelect(_):
+    saveAnnotation(isNotice=True)
     openPhotoBySelectPhoto()
 
 def onButtonDelete(_):
@@ -889,9 +1008,20 @@ def onButtonDelete(_):
     if boxCount == 0:
         return
     v['Image'].remove_subview(selectedBox)
+    
+    j = 0
+    for i in range(boxCount):
+        box = v['Image']['rangeBox'+str(i)]
+        if box == None:
+            continue
+        else:
+            box.name = 'rangeBox'+str(j)
+            j += 1
+    
     boxCount -= 1
     if boxCount == 0:
         return
+    
     selectBox(boxCount-1)
     
     global isEdited
@@ -906,8 +1036,13 @@ def onSwitchShowAncorGuid(sender):
     else:
         hideAncorGuid()
 
-def onSwitch2PColor(sender):
-    applyThemeColor(1 if sender.value else 0)
+def onButtonTheme(_):
+    global nowThemeNum
+    global config
+    nowThemeNum += 1
+    if nowThemeNum == len(config.theme_colors):
+        nowThemeNum = 0
+    applyThemeColor(nowThemeNum)
 
 def onSaturationSlider(sender):
     v['Image']['saturationScreen'].alpha = sender.value
@@ -931,7 +1066,7 @@ def onButtonChooseLabel(_):
     global classes
     items = []
     for c in classes:
-        r, g, b = c.color.r, c.color.g, c.color.b
+        r, g, b = c.bgcolor.r, c.bgcolor.g, c.bgcolor.b
         items.append({
             'title': c.title,
             'image': createOneColorImage(x=200, y=200, r=r, g=g, b=b)
@@ -943,14 +1078,61 @@ def onButtonChooseLabel(_):
     
     global selectedBox
     selectedBox['label'].text = classes[index].title
-    selectedBox['label'].background_color = (classes[index].color.tuple)
+    selectedBox['label'].background_color = (classes[index].bgcolor.tuple)
     
     global selectedLabelIndex
     selectedLabelIndex = index
     
     global isEdited
     isEdited = True
+
+def onButtonEditClasses(_):
+    global ges
+    global classes
+    prevClasses = [c.title for c in classes]
     
+    import edit_classes
+    edit_classes.choose_class_dialog()
+    reloadClasses()
+
+@ui.in_background  
+def onButtonDelPhoto(_):
+    global assets
+    global v
+    global photoNum
+    
+    tmp = ui.View(name='tmp')
+    tmp.width, tmp.height = v['touch_panel'].width, v['touch_panel'].height
+    v.add_subview(tmp)
+    
+    asset = assets[photoNum]
+    photos.batch_delete([asset])
+    
+    v.remove_subview(v['tmp'])
+    
+    openNextImage()
+    openLastEdetedFile()
+    
+def onButtonMenu(_):
+    global menu_state
+    if menu_state:
+        closeMenue()
+    else:
+        openMenue()
+    menu_state = not menu_state
+    
+def onSwitchZoomModw(sender):
+    global zoom_mode
+    zoom_mode = sender.value
+    
+    
+def onButtonExit(_):
+    saveAnnotation()
+    global s
+    sv.close()
+    
+def onButtonTest(_):
+    pass
 
 ### ---------------------- ###
 ### |\   /|   /\   | |\  | ###
@@ -961,18 +1143,34 @@ def onButtonChooseLabel(_):
 @on_main_thread
 def awake():
     global v
+    global config
     initProgressLabel()
+    initUIItems()
+    initMenuView()
     v['touch_panel'].multitouch_enabled = True
     v['slider_zoom'].continuous = True
     v['Image'].content_mode = ui.CONTENT_SCALE_ASPECT_FIT
     v['Image'].background_color = 'white'
-    v['curtain'].center = v['Image'].center
+    v['curtain'].center = v['touch_panel'].center
+    v['curtain'].bring_to_front()
+    v['curtain'].touch_enabled = False
+    v['guidBox'].border_color = config.theme_colors[0]['guide']
+    
+    global zoom_mode
+    zoom_mode = v['menu_view']['menu']['switch_zoom_mode'].value
 
 def start():
     global v
     global centerPos
     global initialImageScale
+    
     centerPos = v['touch_panel'].center
+    
+    global imgOffset
+    imgOffset = {
+        'x': -v['Image'].x,
+        'y': -v['Image'].y
+    }
     initialImageScale = [v['touch_panel'].height, v['touch_panel'].width]
     createAncorGuide()
     
@@ -993,11 +1191,20 @@ def start():
     
 def main():
     global v
+    global sv
+    
+    status_bar_height = 20
     
     v = ui.load_view()
+    sv = ui.View(frame=v.bounds, name='superview')
+    
+    v.y = status_bar_height
+    v.height -= status_bar_height
+    v.flex = 'WH'
+    sv.add_subview(v)
     awake()
             
-    v.present('fullscreen')
+    sv.present('fullscreen', hide_title_bar=True)
     start()
 
 if __name__ == '__main__':
