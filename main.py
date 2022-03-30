@@ -728,6 +728,7 @@ def initMenuView():
     
 def openMenue():
     global v
+    global menu_state
     
     bgView = ui.Button(name='menuBG')
     bgView.background_color = (0,0,0,1)
@@ -745,10 +746,13 @@ def openMenue():
     v['button_menu'].bring_to_front()
     ui.animate(animation, 0.25)
     
+    menu_state = True
+    
     
     
 def closeMenue():
     global v
+    global menu_state
     
     def animation():
         v['menu_view'].x += v['menu_view'].width
@@ -758,6 +762,8 @@ def closeMenue():
         v.remove_subview(v['menuBG'])
     
     ui.animate(animation, 0.25, completion=completion)
+    
+    menu_state = False
     
     
 ### --------------------------------- ###
@@ -1000,6 +1006,7 @@ def onButtonBack(_):
 
 def onButtonSelect(_):
     saveAnnotation(isNotice=True)
+    closeMenue()
     openPhotoBySelectPhoto()
 
 def onButtonDelete(_):
@@ -1094,6 +1101,7 @@ def onButtonEditClasses(_):
     import edit_classes
     edit_classes.choose_class_dialog()
     reloadClasses()
+    closeMenue()
 
 @ui.in_background  
 def onButtonDelPhoto(_):
@@ -1113,13 +1121,14 @@ def onButtonDelPhoto(_):
     openNextImage()
     openLastEdetedFile()
     
+    closeMenue()
+    
 def onButtonMenu(_):
     global menu_state
     if menu_state:
         closeMenue()
     else:
         openMenue()
-    menu_state = not menu_state
     
 def onSwitchZoomModw(sender):
     global zoom_mode
